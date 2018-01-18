@@ -11,24 +11,27 @@ import (
 	"strings"
 )
 
+//ReadConfigFile is a func to load content from special file which in filepath
+// to check the file type and prepare to read config file
 func ReadConfigFile(filepath string, cType string) (map[string]interface{}, error) {
 
 	_, error := os.Stat(filepath)
 	if error != nil {
-		return nil, errors.New("Config file is not Exist !")
+		return nil, errors.New("Config file is not Exist")
 	}
-
 	switch cType {
 	case "ini":
 		return ReadIni(filepath)
 	case "json":
-		return ReadJson(filepath)
+		return ReadJSON(filepath)
 	default:
-		return make(map[string]interface{}), errors.New("ConfigFile type is not supported !")
+		return make(map[string]interface{}), errors.New("ConfigFile type is not supported")
 	}
 
 }
 
+//ReadIni if the filetype is .ini
+//to load content with this func
 func ReadIni(filepath string) (map[string]interface{}, error) {
 
 	file, error := os.Open(filepath)
@@ -101,9 +104,9 @@ func ReadIni(filepath string) (map[string]interface{}, error) {
 
 	}
 	return content, nil
-
 }
 
+//clear unnecessary charactors
 func trimCharactors(s string) string {
 	s = strings.Trim(s, "\n")
 	s = strings.Trim(s, "\r\n")
@@ -114,7 +117,9 @@ func trimCharactors(s string) string {
 	return s
 }
 
-func ReadJson(filepath string) (map[string]interface{}, error) {
+//ReadJSON if the filetype is .json
+//load content with this func
+func ReadJSON(filepath string) (map[string]interface{}, error) {
 	file, error := os.Open(filepath)
 	if error != nil {
 		return nil, error
