@@ -83,7 +83,7 @@ func ReadIni(filepath string) (map[string]interface{}, error) {
 		if len(matchedStrings) > 0 {
 			key := matchedStrings[1]
 			value := matchedStrings[2]
-			if isInt, _ := regexp.MatchString("\\d+", value); isInt {
+			if isInt, _ := regexp.MatchString("^\\d+$", value); isInt {
 				intValue, _ := strconv.Atoi(value)
 				if deep == 1 {
 					tmpContent[key] = intValue
@@ -112,7 +112,6 @@ func trimCharactors(s string) string {
 	s = strings.Trim(s, "\r\n")
 	s = strings.Trim(s, "\r")
 	s = strings.Replace(s, "\"", "", -1)
-	s = strings.Replace(s, " ", "", -1)
 
 	return s
 }
