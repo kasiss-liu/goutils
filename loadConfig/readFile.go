@@ -47,7 +47,7 @@ func ReadIni(filepath string) (map[string]interface{}, error) {
 
 	content := make(map[string]interface{})
 	keyReg, _ := regexp.Compile("\\[(\\w+)\\]")
-	varlueReg, _ := regexp.Compile("(\\w+)=(.*)")
+	varlueReg, _ := regexp.Compile("\\s*(\\w+)\\s*=\\s*(.*)")
 	tmpContent := make(map[string]interface{})
 
 	for {
