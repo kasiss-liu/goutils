@@ -27,7 +27,12 @@ func (c *Config) Get(key string) *Config {
 			return &Config{c.name, c.path, c.cType, val}
 		}
 	}
-	return &Config{c.name, c.path, c.cType, nil}
+	return &Config{}
+}
+
+//GetAll Data
+func (c *Config) GetAll() interface{} {
+	return c.content
 }
 
 //Int to Get an Int value
