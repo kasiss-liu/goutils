@@ -35,7 +35,14 @@ func (ms *MemStorage) Get(r *http.Request, name string) (*Session, error) {
 	ms.rwLock.RLock()
 	defer ms.rwLock.RUnlock()
 	if sess, ok := ms.list[name]; ok {
-		return sess, nil
+		return &Session{
+			ID:      sess.ID,
+			Values:  sess.Values,
+			Options: sess.Options,
+			IsNew:   false,
+			ActTime: sess.ActTime,
+			storage: storage,
+		}, nil
 	}
 	return nil, errors.New("session lost")
 }

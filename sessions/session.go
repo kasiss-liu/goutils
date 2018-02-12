@@ -36,7 +36,7 @@ type Session struct {
 }
 
 //设置session值
-func (s *Session) Set(key, value interface{}) {
+func (s *Session) Set(key interface{}, value interface{}) {
 	s.Values[key] = value
 }
 
