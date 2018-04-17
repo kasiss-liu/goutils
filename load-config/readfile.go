@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 //ReadConfigFile is a func to load content from special file which in filepath
@@ -24,6 +26,8 @@ func ReadConfigFile(filepath string, cType string) (map[string]interface{}, erro
 		return ReadIni(filepath)
 	case "json":
 		return ReadJSON(filepath)
+	case "yml", "yaml":
+		return ReadYAML(filepath)
 	default:
 		return make(map[string]interface{}), errors.New("ConfigFile type is not supported")
 	}
@@ -137,4 +141,26 @@ func ReadJSON(filepath string) (map[string]interface{}, error) {
 	}
 
 	return jsonMap, nil
+}
+
+//ReadYAML if the filetype is .yml
+//load content with this func
+func ReadYAML(filepath string) (map[string]interface{}, error) {
+	file, error := os.Open(filepath)
+	if error != nil {
+		return nil, error
+	}
+	defer file.Close()
+	content, error := ioutil.ReadAll(file)
+	if error != nil {
+		return nil, error
+	}
+
+	yamlMap := make(map[string]interface{})
+	err := yaml.Unmarshal(content, &yamlMap)
+
+	if err != nil {
+		return nil, err
+	}
+	return yamlMap, nil
 }
