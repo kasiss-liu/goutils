@@ -194,7 +194,7 @@ func (q *query) compactSelect() {
 	q.sql = "select "
 	if len(q.fields) > 0 {
 		for _, field := range q.fields {
-			q.sql += field
+			q.sql += field + ","
 		}
 		q.sql = strings.TrimRight(q.sql, ",")
 	} else {
