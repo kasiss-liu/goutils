@@ -10,22 +10,34 @@ import (
 )
 
 type query struct {
-	conn   *sql.DB
-	table  string
-	where  []where
-	fields []string
-	order  map[string]string
-	group  []string
-	save   []map[string]interface{}
-	offset int
-	limit  int
-	sql    string
+	conn     *sql.DB
+	tx       *sql.Tx
+	txStatus bool
+	table    string
+	where    []where
+	fields   []string
+	order    map[string]string
+	group    []string
+	save     []map[string]interface{}
+	offset   int
+	limit    int
+	sql      string
 }
 
 type where struct {
 	field   string
 	compare string
 	value   interface{}
+}
+
+type queryResult struct {
+	Columns []string
+	RowsNum int
+	Value   []map[string]string
+}
+type execResult struct {
+	AffectedRows int
+	Result       bool
 }
 
 //mysql 配置结构
@@ -159,24 +171,118 @@ func (q *query) inFields(field string) bool {
 }
 
 //执行查询
-func (q *query) Query() *sql.Rows {
+func (q *query) Query() *queryResult {
 	//先拼接sql
 	q.compactQuery()
+	//确认是否是事务处理
+	var stmt *sql.Stmt
+	var err error
+	if q.txStatus {
+		stmt, err = q.tx.Prepare(q.sql)
+	} else {
+		stmt, err = q.conn.Prepare(q.sql)
+	}
 	//然后执行查询
-	rows, err := q.conn.Query(q.sql)
-	if err != nil {
+	var res *sql.Rows
+	if stmt != nil && err == nil {
+		res, err = stmt.Query()
+		defer res.Close()
+		stmt.Close()
+		if err != nil {
+			return nil
+		}
+		stmt.Close()
+	} else {
 		return nil
 	}
-	return rows
+	return q.get(res)
+}
 
+func (q *query) get(rows *sql.Rows) *queryResult {
+	cols, err := rows.Columns()
+	if err != nil {
+		println(cols)
+		return nil
+	}
+	rawResult := make([][]byte, len(cols))
+	result := make(map[string]string)
+	dest := make([]interface{}, len(cols))
+	for i, _ := range rawResult {
+		dest[i] = &rawResult[i]
+	}
+	results := make([]map[string]string, 0, 10)
+	for rows.Next() {
+		err := rows.Scan(dest...)
+		if err != nil {
+			return nil
+		}
+
+		for i, raw := range rawResult {
+			if raw == nil {
+				result[cols[i]] = ""
+			} else {
+				result[cols[i]] = string(raw)
+			}
+		}
+
+		results = append(results, result)
+	}
+	return &queryResult{
+		Columns: cols,
+		Value:   results,
+		RowsNum: len(results),
+	}
 }
 
 //查询单条记录
-func (q *query) QueryOne() *sql.Row {
+func (q *query) QueryOne() map[string]string {
+	q.limit = 1
 	//先拼接sql
 	q.compactQuery()
+	//确认是否是事务处理
+	var stmt *sql.Stmt
+	var err error
+	if q.txStatus {
+		stmt, err = q.tx.Prepare(q.sql)
+	} else {
+		stmt, err = q.conn.Prepare(q.sql)
+	}
 	//然后执行查询
-	return q.conn.QueryRow(q.sql)
+	var res *sql.Rows
+	if stmt != nil {
+		res, err = stmt.Query()
+		defer res.Close()
+		stmt.Close()
+		if err != nil {
+			return nil
+		}
+	}
+	return q.getOne(res)
+}
+
+func (q *query) getOne(rows *sql.Rows) map[string]string {
+	cols, _ := rows.Columns()
+	rawResult := make([][]byte, len(cols))
+	result := make(map[string]string)
+	dest := make([]interface{}, len(cols))
+	for i, _ := range rawResult {
+		dest[i] = &rawResult[i]
+	}
+	if rows.Next() {
+		err := rows.Scan(dest...)
+		if err != nil {
+			return nil
+		}
+
+		for i, raw := range rawResult {
+			if raw == nil {
+				result[cols[i]] = ""
+			} else {
+				result[cols[i]] = string(raw)
+			}
+		}
+	}
+	return result
 }
 
 //拼接sql
@@ -278,4 +384,45 @@ func (q *query) compactLimit() {
 	if q.offset > 0 {
 		q.sql += " offset " + strconv.Itoa(q.offset)
 	}
+}
+
+func (q *query) Close() error {
+	return q.conn.Close()
+}
+func (q *query) Ping() error {
+	return q.conn.Ping()
+}
+
+func (q *query) BeginTransaction() error {
+	if q.tx == nil {
+		tx, err := q.conn.Begin()
+		if err != nil {
+			return err
+		}
+		q.tx = tx
+	}
+	q.txStatus = true
+	return nil
+}
+func (q *query) Commit() error {
+	if q.tx != nil {
+		err := q.tx.Commit()
+		if err != nil {
+			return err
+		}
+		q.tx = nil
+	}
+	q.txStatus = false
+	return nil
+}
+func (q *query) Rollback() error {
+	if q.tx != nil {
+		err := q.tx.Rollback()
+		if err != nil {
+			return err
+		}
+		q.tx = nil
+	}
+	q.txStatus = false
+	return nil
 }
