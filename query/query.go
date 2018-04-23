@@ -16,9 +16,8 @@ type query struct {
 	table      string
 	where      []where
 	fields     []string
-	order      map[string]string
+	order      []map[string]string
 	group      []string
-	save       []map[string]interface{}
 	offset     int
 	limit      int
 	sql        string
@@ -26,6 +25,7 @@ type query struct {
 	queryLog   []string
 	isLogQuery bool
 	errors     []string
+	lastSql    string
 }
 
 type where struct {
@@ -72,9 +72,8 @@ func NewQuery(conn *sql.DB) *query {
 		conn:       conn,
 		where:      make([]where, 0, 5),
 		fields:     make([]string, 0, 10),
-		order:      make(map[string]string),
+		order:      make([]map[string]string, 0, 1),
 		group:      make([]string, 0, 1),
-		save:       make([]map[string]interface{}, 0, 5),
 		offset:     0,
 		limit:      0,
 		stmtValue:  make([]interface{}, 0, 10),
@@ -134,10 +133,9 @@ func (q *query) Select(fields []string) *query {
 }
 
 //设置order
-func (q *query) OrderBy(m map[string]string) *query {
-	for k, v := range m {
-		q.order[k] = v
-	}
+func (q *query) OrderBy(field string, sort string) *query {
+	order := map[string]string{field: sort}
+	q.order = append(q.order, order)
 	return q
 }
 
@@ -193,9 +191,11 @@ func (q *query) Query() *queryResult {
 			return nil
 		}
 	} else {
-		q.errors = append(q.errors, err.Error())
+		q.saveError(err.Error())
 		return nil
 	}
+	//清理临时数据
+	q.resetAll()
 	return q.get(rows)
 }
 
@@ -210,19 +210,22 @@ func (q *query) QueryOne() map[string]string {
 
 	//然后执行查询
 	var rows *sql.Rows
-	if err == nil {
-		rows, err = stmt.Query(q.stmtValue...)
-		defer rows.Close()
-		defer stmt.Close()
-		if err != nil {
-			return nil
-		}
-	} else {
-		q.errors = append(q.errors, err.Error())
+	if err != nil {
+		q.saveError(err.Error())
+		return nil
+
+	}
+	rows, err = stmt.Query(q.stmtValue...)
+	defer rows.Close()
+	defer stmt.Close()
+	if err != nil {
+		q.saveError(err.Error())
 		return nil
 	}
 	//解析结果 并返回第一条数据
 	results := q.get(rows)
+	//清理临时数据
+	q.resetAll()
 	if len(results.Value) > 0 {
 		return results.Value[0]
 	} else {
@@ -238,17 +241,19 @@ func (q *query) get(rows *sql.Rows) *queryResult {
 		return nil
 	}
 	rawResult := make([][]byte, len(cols))
-	result := make(map[string]string)
 	dest := make([]interface{}, len(cols))
 	for i, _ := range rawResult {
 		dest[i] = &rawResult[i]
 	}
 	results := make([]map[string]string, 0, 10)
+
 	for rows.Next() {
 		err := rows.Scan(dest...)
 		if err != nil {
+			q.saveError(err.Error())
 			return nil
 		}
+		result := make(map[string]string)
 
 		for i, raw := range rawResult {
 			if raw == nil {
@@ -257,9 +262,9 @@ func (q *query) get(rows *sql.Rows) *queryResult {
 				result[cols[i]] = string(raw)
 			}
 		}
-
 		results = append(results, result)
 	}
+
 	return &queryResult{
 		Columns: cols,
 		Value:   results,
@@ -281,6 +286,9 @@ func (q *query) getStmt() (*sql.Stmt, error) {
 	if q.isLogQuery {
 		q.queryLog = append(q.queryLog, q.sql)
 	}
+	//保存最后一条执行sql
+	q.lastSql = q.sql
+
 	return stmt, err
 }
 
@@ -369,8 +377,10 @@ func (q *query) compactGroup() {
 func (q *query) compactOrder() {
 	if len(q.order) > 0 {
 		q.sql += " order by "
-		for k, v := range q.order {
-			q.sql += "`" + k + "` " + v + ","
+		for _, stringMap := range q.order {
+			for k, v := range stringMap {
+				q.sql += "`" + k + "` " + v + ","
+			}
 		}
 		q.sql = strings.Trim(q.sql, ",")
 	}
@@ -390,48 +400,88 @@ func (q *query) compactLimit() {
 func (q *query) Create(data map[string]interface{}) int {
 	//初始化sql
 	q.resetStmt()
-	q.compactCreateFields(data)
-	q.compactCreateData([]map[string]interface{}{data})
+	keys := q.compactCreateFields(data)
+	q.compactCreateData([]map[string]interface{}{data}, keys)
 	//初始化stmt
 	var stmt *sql.Stmt
 	var err error
 	var res sql.Result
 	stmt, err = q.getStmt()
+
 	//stmt 执行操作
-	if err == nil {
-		res, err = stmt.Exec(q.stmtValue...)
-	} else {
-		q.errors = append(q.errors, err.Error())
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+
+	defer stmt.Close()
+	res, err = stmt.Exec(q.stmtValue...)
+	if err != nil {
+		q.saveError(err.Error())
 		return 0
 	}
 	//分析结果 返回数据
 	lastInsertId, err := res.LastInsertId()
 	if err != nil {
-		q.errors = append(q.errors, err.Error())
+		q.saveError(err.Error())
 		return 0
-	} else {
-		return int(lastInsertId)
 	}
+	//清理临时数据
+	q.resetAll()
+	return int(lastInsertId)
+}
+
+//批量创建数据
+func (q *query) CreateBatch(data []map[string]interface{}) int {
+	//初始化sql
+	q.resetStmt()
+	keys := q.compactCreateFields(data[0])
+	q.compactCreateData(data, keys)
+	//初始化stmt
+	var stmt *sql.Stmt
+	var err error
+	stmt, err = q.getStmt()
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	defer stmt.Close()
+	res, err := stmt.Exec(q.stmtValue...)
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	lastInsertId, err := res.LastInsertId()
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	//清理临时数据
+	q.resetAll()
+	return int(lastInsertId)
 }
 
 //整理新建数据字段
-func (q *query) compactCreateFields(data map[string]interface{}) {
+func (q *query) compactCreateFields(data map[string]interface{}) []string {
+	keys := make([]string, 0, 10)
 	//准备sql的fields
 	q.sql = "insert into `" + q.table + "` ("
 	for key, _ := range data {
 		q.sql += "`" + key + "`,"
+		keys = append(keys, key)
 	}
 	q.sql = strings.TrimRight(q.sql, ",")
 	q.sql += ") values "
+	return keys
 }
 
 //兼容批量输入
-func (q *query) compactCreateData(datas []map[string]interface{}) {
+func (q *query) compactCreateData(datas []map[string]interface{}, keys []string) {
 	for _, data := range datas {
 		q.sql += "("
-		for _, insert := range data {
+		for _, key := range keys {
 			q.sql += "?,"
-			q.stmtValue = append(q.stmtValue, insert)
+			q.stmtValue = append(q.stmtValue, data[key])
 		}
 		q.sql = strings.TrimRight(q.sql, ",")
 		q.sql += "),"
@@ -440,13 +490,92 @@ func (q *query) compactCreateData(datas []map[string]interface{}) {
 }
 
 //保存/更新数据
-func (q *query) Update(data map[string]string) {
+func (q *query) Update(data map[string]interface{}) int {
+	q.resetStmt()
+	//组装update数据
+	q.compactUpdate(data)
+	//组装where
+	q.compactWhere()
+
+	var stmt *sql.Stmt
+	var err error
+	stmt, err = q.getStmt()
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	defer stmt.Close()
+	//执行sql
+	res, err := stmt.Exec(q.stmtValue...)
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	affectedRows, err := res.RowsAffected()
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	//清理临时数据
+	q.resetAll()
+	return int(affectedRows)
 
 }
 
-//删除数据
-func (q *query) Delete() {
+//组装update数据
+func (q *query) compactUpdate(data map[string]interface{}) {
+	q.sql = "update `" + q.table + "` set "
+	for k, v := range data {
+		q.sql += "`" + k + "` = ? ,"
+		q.stmtValue = append(q.stmtValue, v)
+	}
+	q.sql = strings.TrimRight(q.sql, ",")
+}
 
+//删除数据
+func (q *query) Delete() int {
+	q.resetStmt()
+	//禁止无条件删除
+	if len(q.where) == 0 {
+		q.saveError("can not delete without where condition")
+		return 0
+	}
+	//拼装sql
+	q.compactDelete()
+	//拼装where
+	q.compactWhere()
+	//进行预处理
+	var stmt *sql.Stmt
+	var err error
+	stmt, err = q.getStmt()
+	//预处理检查 记录错误
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	defer stmt.Close()
+	//执行语句
+	res, err := stmt.Exec(q.stmtValue...)
+	//结果分析
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	//获取受影响行数
+	affectedRows, err := res.RowsAffected()
+	if err != nil {
+		q.saveError(err.Error())
+		return 0
+	}
+	//清理临时数据
+	q.resetAll()
+	return int(affectedRows)
+
+}
+
+//预处理delete语句
+func (q *query) compactDelete() {
+	q.sql = "delete from `" + q.table + "` "
 }
 
 //关闭数据库链接
@@ -501,4 +630,110 @@ func (q *query) Rollback() error {
 //清空query数据
 func (q *query) resetStmt() {
 	q.stmtValue = make([]interface{}, 0, 10)
+}
+
+//清空执行sql
+func (q *query) resetSql() {
+	q.sql = ""
+}
+
+//清空errors
+func (q *query) resetErrors() {
+	q.errors = make([]string, 0, 10)
+}
+
+//清空sql日志
+func (q *query) resetQueryLog() {
+	q.queryLog = make([]string, 0, 10)
+}
+
+//清空where条件
+func (q *query) resetWhere() {
+	q.where = make([]where, 0, 10)
+}
+
+//清空group条件
+func (q *query) resetGroup() {
+	q.group = make([]string, 0, 1)
+}
+
+//清空orderby条件
+func (q *query) resetOrder() {
+	q.order = make([]map[string]string, 0, 1)
+}
+
+//清空fields条件
+func (q *query) resetFields() {
+	q.fields = make([]string, 0, 10)
+}
+
+//清空limit、offset
+func (q *query) resetLimit() {
+	q.offset = 0
+	q.limit = 0
+}
+
+//清空table
+func (q *query) resetTable() {
+	q.table = ""
+}
+
+//清空日志、事务以外的所有数据
+func (q *query) resetAll() {
+	q.resetStmt()
+	q.resetWhere()
+	q.resetGroup()
+	q.resetOrder()
+	q.resetFields()
+	q.resetTable()
+	q.resetLimit()
+
+}
+
+//清空最后一条执行sql
+func (q *query) resetLastQuery() {
+	q.lastSql = ""
+}
+
+//记录错误日志
+func (q *query) saveError(err string) {
+	q.errors = append(q.errors, err)
+}
+
+//获取最后一个错误信息
+func (q *query) GetLastError() string {
+	return q.errors[len(q.errors)-1]
+}
+
+//获取所有错误信息
+func (q *query) GetAllErrors() []string {
+	return q.errors
+}
+
+//获取最后一条执行的sql
+func (q *query) GetLastSQL() string {
+	return q.lastSql
+}
+
+//获取sql日志
+func (q *query) GetSQLs() []string {
+	return q.queryLog
+}
+
+//启用sql日志 默认关闭
+func (q *query) StartLogQuery() {
+	q.isLogQuery = true
+}
+
+//关闭sql日志
+func (q *query) StopLogQuery() {
+	q.isLogQuery = false
+}
+
+//重置mysql链接以外的所有数据
+func (q *query) Reset() {
+	if q.txStatus == true {
+		q.Rollback()
+	}
+	q = NewQuery(q.conn)
 }
