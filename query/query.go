@@ -10,18 +10,22 @@ import (
 )
 
 type query struct {
-	conn     *sql.DB
-	tx       *sql.Tx
-	txStatus bool
-	table    string
-	where    []where
-	fields   []string
-	order    map[string]string
-	group    []string
-	save     []map[string]interface{}
-	offset   int
-	limit    int
-	sql      string
+	conn       *sql.DB
+	tx         *sql.Tx
+	txStatus   bool
+	table      string
+	where      []where
+	fields     []string
+	order      map[string]string
+	group      []string
+	save       []map[string]interface{}
+	offset     int
+	limit      int
+	sql        string
+	stmtValue  []interface{}
+	queryLog   []string
+	isLogQuery bool
+	errors     []string
 }
 
 type where struct {
@@ -51,28 +55,31 @@ type DbConfig struct {
 }
 
 // 获取一个配置结构
-func NewDbConfig(h string, p int, u string, pwd string, db string, c string) *DbConfig {
+func NewDbConfig(host string, port int, user string, pwd string, db string, charset string) *DbConfig {
 	return &DbConfig{
-		Host:    h,
-		Port:    p,
-		User:    u,
+		Host:    host,
+		Port:    port,
+		User:    user,
 		Passwd:  pwd,
 		Dbname:  db,
-		Charset: c,
+		Charset: charset,
 	}
 }
 
 //获取一个新的query结构
 func NewQuery(conn *sql.DB) *query {
 	return &query{
-		conn:   conn,
-		where:  make([]where, 0, 5),
-		fields: make([]string, 0, 10),
-		order:  make(map[string]string),
-		group:  make([]string, 0, 1),
-		save:   make([]map[string]interface{}, 0, 5),
-		offset: 0,
-		limit:  0,
+		conn:       conn,
+		where:      make([]where, 0, 5),
+		fields:     make([]string, 0, 10),
+		order:      make(map[string]string),
+		group:      make([]string, 0, 1),
+		save:       make([]map[string]interface{}, 0, 5),
+		offset:     0,
+		limit:      0,
+		stmtValue:  make([]interface{}, 0, 10),
+		queryLog:   make([]string, 0, 10),
+		isLogQuery: false,
 	}
 }
 
@@ -174,30 +181,56 @@ func (q *query) inFields(field string) bool {
 func (q *query) Query() *queryResult {
 	//先拼接sql
 	q.compactQuery()
-	//确认是否是事务处理
-	var stmt *sql.Stmt
-	var err error
-	if q.txStatus {
-		stmt, err = q.tx.Prepare(q.sql)
-	} else {
-		stmt, err = q.conn.Prepare(q.sql)
-	}
+
+	stmt, err := q.getStmt()
 	//然后执行查询
-	var res *sql.Rows
-	if stmt != nil && err == nil {
-		res, err = stmt.Query()
-		defer res.Close()
-		stmt.Close()
+	var rows *sql.Rows
+	if err == nil {
+		rows, err = stmt.Query(q.stmtValue...)
+		defer rows.Close()
+		defer stmt.Close()
 		if err != nil {
 			return nil
 		}
-		stmt.Close()
+	} else {
+		q.errors = append(q.errors, err.Error())
+		return nil
+	}
+	return q.get(rows)
+}
+
+//查询单条记录
+func (q *query) QueryOne() map[string]string {
+	q.limit = 1
+	//先拼接sql
+	q.compactQuery()
+
+	//获取stmt
+	stmt, err := q.getStmt()
+
+	//然后执行查询
+	var rows *sql.Rows
+	if err == nil {
+		rows, err = stmt.Query(q.stmtValue...)
+		defer rows.Close()
+		defer stmt.Close()
+		if err != nil {
+			return nil
+		}
+	} else {
+		q.errors = append(q.errors, err.Error())
+		return nil
+	}
+	//解析结果 并返回第一条数据
+	results := q.get(rows)
+	if len(results.Value) > 0 {
+		return results.Value[0]
 	} else {
 		return nil
 	}
-	return q.get(res)
 }
 
+//解析查询结果
 func (q *query) get(rows *sql.Rows) *queryResult {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -234,59 +267,27 @@ func (q *query) get(rows *sql.Rows) *queryResult {
 	}
 }
 
-//查询单条记录
-func (q *query) QueryOne() map[string]string {
-	q.limit = 1
-	//先拼接sql
-	q.compactQuery()
-	//确认是否是事务处理
+//根据不同的事务状态 返回不同的处理器
+func (q *query) getStmt() (*sql.Stmt, error) {
 	var stmt *sql.Stmt
 	var err error
-	if q.txStatus {
+	//判断是否处于事务中
+	if q.txStatus == true {
 		stmt, err = q.tx.Prepare(q.sql)
 	} else {
 		stmt, err = q.conn.Prepare(q.sql)
 	}
-	//然后执行查询
-	var res *sql.Rows
-	if stmt != nil {
-		res, err = stmt.Query()
-		defer res.Close()
-		stmt.Close()
-		if err != nil {
-			return nil
-		}
+	//是否开启query日志 如果开启则保存sql
+	if q.isLogQuery {
+		q.queryLog = append(q.queryLog, q.sql)
 	}
-	return q.getOne(res)
-}
-
-func (q *query) getOne(rows *sql.Rows) map[string]string {
-	cols, _ := rows.Columns()
-	rawResult := make([][]byte, len(cols))
-	result := make(map[string]string)
-	dest := make([]interface{}, len(cols))
-	for i, _ := range rawResult {
-		dest[i] = &rawResult[i]
-	}
-	if rows.Next() {
-		err := rows.Scan(dest...)
-		if err != nil {
-			return nil
-		}
-
-		for i, raw := range rawResult {
-			if raw == nil {
-				result[cols[i]] = ""
-			} else {
-				result[cols[i]] = string(raw)
-			}
-		}
-	}
-	return result
+	return stmt, err
 }
 
 //拼接sql
 func (q *query) compactQuery() {
+
+	q.resetStmt()
 	q.compactSelect()
 	q.compactTable()
 	q.compactWhere()
@@ -317,39 +318,37 @@ func (q *query) compactTable() {
 //拼接where
 func (q *query) compactWhere() {
 	//拼接where
-	q.sql += " where "
+	//将where.value 放入stmtValue中 最后拼接
+	q.sql += " where 1 "
 	if len(q.where) > 0 {
 		for _, where := range q.where {
-			q.sql += "`" + where.field + "` " + where.compare + " "
+			q.sql += " and `" + where.field + "` " + where.compare + " "
+			//断言分析where.value
 			switch v := where.value.(type) {
 			case int:
-				q.sql += strconv.Itoa(v)
+				q.sql += "?"
+				q.stmtValue = append(q.stmtValue, strconv.Itoa(v))
 			case string:
-				q.sql += "'" + v + "'"
+				q.sql += "?"
+				q.stmtValue = append(q.stmtValue, v)
 			case []int:
-				var intString string
-				intString = "("
-				for _, i := range v {
-					intString += strconv.Itoa(i) + ","
-				}
-				intString = strings.Trim(intString, ",")
-				intString += ")"
-				q.sql += intString
-			case []string:
-				var sString string
-				sString = "("
+				q.sql += "("
 				for _, s := range v {
-					sString += "'" + s + "',"
+					q.sql += " ? ,"
+					q.stmtValue = append(q.stmtValue, s)
 				}
-				sString = strings.Trim(sString, ",")
-				sString += ")"
-				q.sql += sString
-			default:
-				q.sql += "1"
+				q.sql = strings.Trim(q.sql, ",")
+				q.sql += ") "
+			case []string:
+				q.sql += "("
+				for _, s := range v {
+					q.sql += " ? ,"
+					q.stmtValue = append(q.stmtValue, s)
+				}
+				q.sql = strings.Trim(q.sql, ",")
+				q.sql += ") "
 			}
 		}
-	} else {
-		q.sql += "1"
 	}
 }
 
@@ -366,6 +365,7 @@ func (q *query) compactGroup() {
 	}
 }
 
+//拼接orderby
 func (q *query) compactOrder() {
 	if len(q.order) > 0 {
 		q.sql += " order by "
@@ -386,13 +386,80 @@ func (q *query) compactLimit() {
 	}
 }
 
+//创建新数据
+func (q *query) Create(data map[string]interface{}) int {
+	//初始化sql
+	q.resetStmt()
+	q.compactCreateFields(data)
+	q.compactCreateData([]map[string]interface{}{data})
+	//初始化stmt
+	var stmt *sql.Stmt
+	var err error
+	var res sql.Result
+	stmt, err = q.getStmt()
+	//stmt 执行操作
+	if err == nil {
+		res, err = stmt.Exec(q.stmtValue...)
+	} else {
+		q.errors = append(q.errors, err.Error())
+		return 0
+	}
+	//分析结果 返回数据
+	lastInsertId, err := res.LastInsertId()
+	if err != nil {
+		q.errors = append(q.errors, err.Error())
+		return 0
+	} else {
+		return int(lastInsertId)
+	}
+}
+
+//整理新建数据字段
+func (q *query) compactCreateFields(data map[string]interface{}) {
+	//准备sql的fields
+	q.sql = "insert into `" + q.table + "` ("
+	for key, _ := range data {
+		q.sql += "`" + key + "`,"
+	}
+	q.sql = strings.TrimRight(q.sql, ",")
+	q.sql += ") values "
+}
+
+//兼容批量输入
+func (q *query) compactCreateData(datas []map[string]interface{}) {
+	for _, data := range datas {
+		q.sql += "("
+		for _, insert := range data {
+			q.sql += "?,"
+			q.stmtValue = append(q.stmtValue, insert)
+		}
+		q.sql = strings.TrimRight(q.sql, ",")
+		q.sql += "),"
+	}
+	q.sql = strings.TrimRight(q.sql, ",")
+}
+
+//保存/更新数据
+func (q *query) Update(data map[string]string) {
+
+}
+
+//删除数据
+func (q *query) Delete() {
+
+}
+
+//关闭数据库链接
 func (q *query) Close() error {
 	return q.conn.Close()
 }
+
+//ping
 func (q *query) Ping() error {
 	return q.conn.Ping()
 }
 
+//开启事务
 func (q *query) BeginTransaction() error {
 	if q.tx == nil {
 		tx, err := q.conn.Begin()
@@ -404,6 +471,8 @@ func (q *query) BeginTransaction() error {
 	q.txStatus = true
 	return nil
 }
+
+//事务提交
 func (q *query) Commit() error {
 	if q.tx != nil {
 		err := q.tx.Commit()
@@ -415,6 +484,8 @@ func (q *query) Commit() error {
 	q.txStatus = false
 	return nil
 }
+
+//事务回滚
 func (q *query) Rollback() error {
 	if q.tx != nil {
 		err := q.tx.Rollback()
@@ -425,4 +496,9 @@ func (q *query) Rollback() error {
 	}
 	q.txStatus = false
 	return nil
+}
+
+//清空query数据
+func (q *query) resetStmt() {
+	q.stmtValue = make([]interface{}, 0, 10)
 }
