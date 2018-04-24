@@ -233,6 +233,29 @@ func (q *query) QueryOne() map[string]string {
 	}
 }
 
+//自定义sql查询
+func (q *query) QueryRaw(query string, v ...interface{}) *queryResult {
+	q.sql = query
+	q.stmtValue = v
+	var stmt *sql.Stmt
+	var err error
+	stmt, err = q.getStmt()
+	if err != nil {
+		q.errors = append(q.errors, err.Error())
+		return nil
+	}
+	defer stmt.Close()
+	rows, err := stmt.Query(q.stmtValue...)
+	if err != nil {
+		q.errors = append(q.errors, err.Error())
+		return nil
+	}
+	defer rows.Close()
+	//清空临时数据
+	q.resetAll()
+	return q.get(rows)
+}
+
 //解析查询结果
 func (q *query) get(rows *sql.Rows) *queryResult {
 	cols, err := rows.Columns()
@@ -702,7 +725,11 @@ func (q *query) saveError(err string) {
 
 //获取最后一个错误信息
 func (q *query) GetLastError() string {
-	return q.errors[len(q.errors)-1]
+	length := len(q.errors)
+	if length > 0 {
+		return q.errors[length-1]
+	}
+	return ""
 }
 
 //获取所有错误信息
