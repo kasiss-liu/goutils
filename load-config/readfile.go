@@ -96,13 +96,25 @@ func ReadIni(filepath string) (map[string]interface{}, error) {
 					content[key] = intValue
 				}
 			} else if isFloat, _ := regexp.MatchString("^\\d+\\.\\d+$", value); isFloat {
-				flaotValue, _ := strconv.ParseInt(value, 10, 64)
+				flaotValue, _ := strconv.ParseFloat(value, 64)
 				if deep == 1 {
 					tmpContent[key] = flaotValue
 					content[mapKey] = tmpContent
 				} else {
 					content[key] = flaotValue
 				}
+			} else if isArr, _ := regexp.MatchString("^\\w+,\\w+$", value); isArr {
+				ss := strings.Split(value, ",")
+				if len(ss) == 0 {
+					continue
+				}
+				if deep == 1 {
+					tmpContent[key] = ss
+					content[mapKey] = tmpContent
+				} else {
+					content[key] = ss
+				}
+
 			} else {
 				if deep == 1 {
 					tmpContent[key] = value

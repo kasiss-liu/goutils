@@ -39,10 +39,6 @@ type queryResult struct {
 	RowsNum int
 	Value   []map[string]string
 }
-type execResult struct {
-	AffectedRows int
-	Result       bool
-}
 
 //mysql 配置结构
 type DbConfig struct {
@@ -122,7 +118,7 @@ func (q *query) Where(field string, value interface{}, compare string) *query {
 }
 
 //设置要查询的字段
-func (q *query) Select(fields []string) *query {
+func (q *query) Select(fields ...string) *query {
 	for _, v := range fields {
 		if q.inFields(v) {
 			continue
@@ -140,7 +136,7 @@ func (q *query) OrderBy(field string, sort string) *query {
 }
 
 //设置group分组
-func (q *query) GroupBy(g []string) *query {
+func (q *query) GroupBy(g ...string) *query {
 	for _, v := range g {
 		q.group = append(q.group, v)
 	}
@@ -152,7 +148,7 @@ func (q *query) Limit(i ...int) *query {
 	if len(i) == 1 {
 		q.limit = i[0]
 	}
-	if len(i) == 2 {
+	if len(i) >= 2 {
 		q.offset = i[0]
 		q.limit = i[1]
 	}
@@ -241,13 +237,13 @@ func (q *query) QueryRaw(query string, v ...interface{}) *queryResult {
 	var err error
 	stmt, err = q.getStmt()
 	if err != nil {
-		q.errors = append(q.errors, err.Error())
+		q.saveError(err.Error())
 		return nil
 	}
 	defer stmt.Close()
 	rows, err := stmt.Query(q.stmtValue...)
 	if err != nil {
-		q.errors = append(q.errors, err.Error())
+		q.saveError(err.Error())
 		return nil
 	}
 	defer rows.Close()
@@ -484,6 +480,27 @@ func (q *query) CreateBatch(data []map[string]interface{}) int {
 	return int(lastInsertId)
 }
 
+//执行自定义sql
+func (q *query) ExecRaw(query string, v ...interface{}) sql.Result {
+	q.sql = query
+	q.stmtValue = v
+
+	var stmt *sql.Stmt
+	var err error
+	stmt, err = q.getStmt()
+	if err != nil {
+		q.saveError(err.Error())
+		return nil
+	}
+	defer stmt.Close()
+	res, err := stmt.Exec(q.stmtValue...)
+	if err != nil {
+		q.saveError(err.Error())
+		return nil
+	}
+	return res
+}
+
 //整理新建数据字段
 func (q *query) compactCreateFields(data map[string]interface{}) []string {
 	keys := make([]string, 0, 10)
@@ -710,7 +727,7 @@ func (q *query) resetAll() {
 	q.resetFields()
 	q.resetTable()
 	q.resetLimit()
-
+	q.resetSql()
 }
 
 //清空最后一条执行sql
@@ -755,6 +772,17 @@ func (q *query) StartLogQuery() {
 //关闭sql日志
 func (q *query) StopLogQuery() {
 	q.isLogQuery = false
+}
+
+//清空错误日志
+func (q *query) ResetErrorLog() {
+	q.resetErrors()
+}
+
+//清空sql日志
+func (q *query) ResetQueryLog() {
+	q.resetLastQuery()
+	q.resetQueryLog()
 }
 
 //重置mysql链接以外的所有数据

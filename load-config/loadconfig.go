@@ -107,6 +107,17 @@ func (c *Config) Float64() (float64, error) {
 //ArrayString to return a []string slice
 // if the type wrong error will be returned
 func (c *Config) ArrayString() ([]string, error) {
+	//if Json or Yaml the data would be type []interface{}
+	if ifv, ok := (c.content).([]interface{}); ok {
+		var ss = make([]string, 0, 10)
+		for _, is := range ifv {
+			if s, ok := is.(string); ok {
+				ss = append(ss, s)
+			}
+		}
+		return ss, nil
+	}
+
 	if m, ok := (c.content).([]string); ok {
 		return m, nil
 	}

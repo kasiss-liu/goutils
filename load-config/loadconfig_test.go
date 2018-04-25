@@ -13,30 +13,46 @@ func TestLoadConfigIni(t *testing.T) {
 	if err == nil {
 		fmt.Println(homePage)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
 	}
 
 	name, err := config.Get("author").Get("name").String()
 	if err == nil {
 		fmt.Println(name)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
 	}
 
 	age, err := config.Get("author").Get("age").Int()
 	if err == nil {
 		fmt.Println(age)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
+	}
+
+	per, err := config.Get("author").Get("percentage").Float64()
+	if err == nil {
+		fmt.Println(per)
+	} else {
+		t.Error(err.Error())
+	}
+
+	arr, err := config.Get("author").Get("keywords").ArrayString()
+	if err == nil {
+		fmt.Println(arr)
+	} else {
+		t.Error(err.Error())
 	}
 
 	// Output:
 	//	https://github.com/kasiss-liu
 	//	kasiss
 	//	28
+	//  0.1
+	//	[kasiss liu]
 }
 
-func LoadConfigJson(t *testing.T) {
+func TestLoadConfigJson(t *testing.T) {
 
 	config := New("test", "./test/conf.json")
 	var err error
@@ -44,27 +60,41 @@ func LoadConfigJson(t *testing.T) {
 	if err == nil {
 		fmt.Println(homePage)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
 	}
 
 	name, err := config.Get("author").Get("name").String()
 	if err == nil {
 		fmt.Println(name)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
 	}
 
 	age, err := config.Get("author").Get("age").Float64()
 	if err == nil {
 		fmt.Println(age)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
+	}
+	per, err := config.Get("author").Get("percentage").Float64()
+	if err == nil {
+		fmt.Println(per)
+	} else {
+		t.Error(err.Error())
+	}
+	arr, err := config.Get("author").Get("keywords").ArrayString()
+	if err == nil {
+		fmt.Println(arr)
+	} else {
+		t.Error(err.Error())
 	}
 
 	// Output:
 	//	https://github.com/kasiss-liu
 	//	kasiss
 	//	28
+	//	0.1
+	//	[kasiss liu]
 }
 
 func TestLoadConfigYml(t *testing.T) {
@@ -76,25 +106,40 @@ func TestLoadConfigYml(t *testing.T) {
 	if err == nil {
 		fmt.Println(homePage)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
 	}
 
 	name, err := config.Get("author").Get("name").String()
 	if err == nil {
 		fmt.Println(name)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
 	}
 
 	age, err := config.Get("author").Get("age").Int()
 	if err == nil {
 		fmt.Println(age)
 	} else {
-		fmt.Println(err.Error())
+		t.Error(err.Error())
+	}
+	per, err := config.Get("author").Get("percentage").Float64()
+	if err == nil {
+		fmt.Println(per)
+	} else {
+		t.Error(err.Error())
+	}
+
+	arr, err := config.Get("author").Get("keywords").ArrayString()
+	if err == nil {
+		fmt.Println(arr)
+	} else {
+		t.Error(err.Error())
 	}
 
 	// Output:
 	//	https://github.com/kasiss-liu
 	//	kasiss
 	//	28
+	//	0.1
+	//	[kasiss liu]
 }
