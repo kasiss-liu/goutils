@@ -34,7 +34,7 @@ func NewSession(path, domain string, maxage int, secure, httponly bool) *Session
 
 //从请求中获取session
 func GetSession(r *http.Request) (*Session, error) {
-	cookie, err := r.Cookie(CookieSessionName)
+	cookie, err := r.Cookie(cookieSessionName)
 	if err == nil {
 		return storage.Get(r, cookie.Value)
 	}

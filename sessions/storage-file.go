@@ -211,7 +211,7 @@ func (fs *FileStorage) transGetValueType(s map[string]interface{}) (i map[interf
 //设置文件存储路径
 //设置session文件的前缀prefix
 //将未清理的session初始化至内存中 继续使用
-func NewFileSessionStorage(path string, prefix ...string) {
+func NewFileSessionStorage(path string, prefix ...string) Storage {
 	var sessionPrefix string
 	var err error
 	//判断路径是否可写
@@ -248,7 +248,7 @@ func NewFileSessionStorage(path string, prefix ...string) {
 		//判断文件是否是session文件
 		filename := filepath.Base(p)
 		//如果没有session前缀 则丢弃
-		if !strings.HasPrefix(filename, prefix) {
+		if !strings.HasPrefix(filename, sessionPrefix) {
 			return nil
 		}
 		//获取name
@@ -256,7 +256,6 @@ func NewFileSessionStorage(path string, prefix ...string) {
 		list[name] = filename
 		return nil
 	})
-	//生成一个新的session仓库 并启动GC
-	storage = &FileStorage{storagePath: path, prefix: sessionPrefix, list: list}
-	storage.GC()
+	//生成一个新的session仓库
+	return &FileStorage{storagePath: path, prefix: sessionPrefix, list: list}
 }

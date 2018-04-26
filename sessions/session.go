@@ -10,7 +10,7 @@ import (
 
 //cookie内存放的sessionId 键名
 var (
-	CookieSessionName string
+	cookieSessionName string = "GO_WEBSESS"
 )
 
 //CookieOptions
@@ -59,9 +59,7 @@ func (s *Session) Del(key interface{}) {
 
 //获取一个session中值的个数
 func (s *Session) Len() (n int) {
-	for _, _ = range s.Values {
-		n++
-	}
+	n = len(s.Values)
 	return
 }
 
@@ -79,7 +77,7 @@ func (s *Session) GC() bool {
 //生成一个新的Cookie结构
 func NewCookie(s *Session) *http.Cookie {
 	cookie := &http.Cookie{
-		Name:   CookieSessionName,
+		Name:   cookieSessionName,
 		Value:  s.ID,
 		Path:   s.Options.Path,
 		Domain: s.Options.Domain,
@@ -114,4 +112,17 @@ func getChar() string {
 	default:
 		return strconv.Itoa(rand.Intn(9))
 	}
+}
+
+func Init(store Storage, cookieName ...string) {
+	if len(cookieName) > 0 {
+		cookieSessionName = cookieName[0]
+	}
+	storage = store
+	storage.GC()
+}
+
+//设置cookieSessionName 来取代默认值
+func SetCookieSessionName(s string) {
+	cookieSessionName = s
 }

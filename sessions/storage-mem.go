@@ -73,7 +73,6 @@ func (ms *MemStorage) GC() {
 }
 
 //生成一个新的内存session仓库
-func NewMemSessionStorage() {
-	storage = &MemStorage{list: make(map[string]*Session, 100)}
-	storage.GC()
+func NewMemSessionStorage() Storage {
+	return &MemStorage{list: make(map[string]*Session, 100)}
 }
