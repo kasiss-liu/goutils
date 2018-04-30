@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -32,11 +33,25 @@ func TestMemSessions(t *testing.T) {
 	isGc := newSession.GC()
 	fmt.Println("Gc:", isGc)
 
+	id := newSession.ID
+	name := cookieSessionName
+
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "localhost:8999", nil)
-	newSession.Save(resp, req)
+
+	newSession.Save(resp, nil)
+
+	req.AddCookie(&http.Cookie{
+		Name:     name,
+		Value:    id,
+		Path:     "/",
+		Domain:   "localhost",
+		HttpOnly: false,
+		Secure:   false,
+	})
+
 	sess, err := GetSession(req)
-	if err != nil {
+	if err == nil {
 		fmt.Println("getSess:", sess)
 	} else {
 		t.Error(err.Error())
@@ -69,9 +84,22 @@ func TestFileSessions(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "localhost:8999", nil)
-	newSession.Save(resp, req)
+	newSession.Save(resp, nil)
+
+	id := newSession.ID
+	name := cookieSessionName
+
+	req.AddCookie(&http.Cookie{
+		Name:     name,
+		Value:    id,
+		Path:     "/",
+		Domain:   "localhost",
+		HttpOnly: false,
+		Secure:   false,
+	})
+
 	sess, err := GetSession(req)
-	if err != nil {
+	if err == nil {
 		fmt.Println("getSess:", sess)
 	} else {
 		t.Error(err.Error())
