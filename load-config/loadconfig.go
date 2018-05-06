@@ -28,6 +28,21 @@ func (c *Config) Get(k interface{}) *Config {
 			}
 		}
 	}
+
+	if key, ok := k.(int); ok {
+		var val interface{}
+		if m, ok := (c.content).([]interface{}); ok {
+			length := len(m)
+			if key < length {
+				val = m[key]
+				if value, ok := val.(map[string]interface{}); ok {
+					return &Config{c.name, c.path, c.cType, value}
+				}
+			}
+			return &Config{c.name, c.path, c.cType, val}
+		}
+	}
+
 	if m, ok := (c.content).(map[interface{}]interface{}); ok {
 		if val, ok := m[k]; ok {
 			if value, ok := val.(map[interface{}]interface{}); ok {
@@ -36,6 +51,7 @@ func (c *Config) Get(k interface{}) *Config {
 			return &Config{c.name, c.path, c.cType, val}
 		}
 	}
+
 	return &Config{}
 }
 
@@ -123,6 +139,36 @@ func (c *Config) ArrayString() ([]string, error) {
 	}
 	return make([]string, 0, 0), errors.New("value is not stringArray type")
 }
+
+//ArrayString to return a []interface{} slice
+// if the type wrong error will be returned
+func (c *Config) Array() ([]interface{}, error) {
+	if ifv, ok := (c.content).([]interface{}); ok {
+		return ifv, nil
+	}
+	return make([]interface{}, 0, 0), errors.New("value is not Array type")
+
+}
+
+//MapString to return map[string]interface{}
+// if the type wrong error will be returned
+func (c *Config) MapString() (map[string]interface{}, error) {
+
+	if ifv, ok := (c.content).(map[string]interface{}); ok {
+		return ifv, nil
+	}
+	if m, ok := (c.content).(map[interface{}]interface{}); ok {
+		var mapString = make(map[string]interface{})
+		for k, v := range m {
+			if key, ok := k.(string); ok {
+				mapString[key] = v
+			}
+		}
+		return mapString, nil
+	}
+	return make(map[string]interface{}), errors.New("value is not stringArray type")
+}
+
 func (c *Config) Interface() (interface{}, error) {
 	if m, ok := (c.content).(interface{}); ok {
 		return m, nil

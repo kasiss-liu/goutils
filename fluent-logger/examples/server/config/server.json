@@ -1,0 +1,15 @@
+{
+	"server":{
+		"type":"tcp",
+		"AddrPort":":8989"
+	},
+	"writers":[
+		{
+			"type":"file",
+			"mark":"app",
+			"dir":"./test/",
+			"prefix":"test",
+			"mode":0
+		}
+	]
+}
