@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 
@@ -41,32 +42,79 @@ func main() {
 		return
 	}
 
+	var addrPort string
+	var sType string
+
 	server, err := config.Get("server").MapString()
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 		return
 	}
-	if addrPort, ok := (server["AddrPort"]).(string); !ok {
+	if addr, ok := (server["AddrPort"]).(string); !ok {
 		fmt.Println("Error:", "Wrong AddrPort Type, Need string")
 		return
+	} else {
+		addrPort = addr
 	}
-	if sType, ok := (server["type"]).(string); !ok {
+	if stype, ok := (server["type"]).(string); !ok {
 		fmt.Println("Error:", "Wrong Type, Need string")
 		return
+	} else {
+		sType = stype
 	}
-	server, err := net.Listen(stype, addrPort)
+	netServer, err := net.Listen(sType, addrPort)
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 		return
 	}
 	for {
-		conn, err := server.Accept()
+		conn, err := netServer.Accept()
 		if err != nil {
 			fmt.Println("AcceptError:", err.Error())
+			continue
 		}
-		var data = make([]byte, 1024)
-		conn.Read(data)
 
+		//		var data = make([]byte, 1024)
+		//		conn.Read(data)
+		fmt.Println("start exec")
+		go setDataToChan(conn)
+		//		reader := bufio.NewReader(conn)
+		//		n := reader.Size()
+		//		strBytes := make([]byte, 0, n)
+		//		reader.Read(strBytes)
+		//		fmt.Printf("%d,%#v", n, string(strBytes))
 	}
 
+}
+
+func setDataToChan(conn net.Conn) (int, error) {
+
+	defer conn.Close()
+	//然后读取第一个空格之前的内容
+	reader := bufio.NewReader(conn)
+	for {
+
+		//删除最后一位的换行 \r\n
+
+		typeBytes, err := reader.ReadBytes(byte(' '))
+		if err != nil {
+			fmt.Println(err.Error())
+			return 0, err
+		}
+		//然后读取第二个空格之前的内容
+		timeBytes, err := reader.ReadBytes(byte(' '))
+		if err != nil {
+			fmt.Println(err.Error())
+			return 0, err
+		}
+		//然后读取剩余内容
+		str, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println(err.Error())
+			return 0, err
+		}
+		fmt.Println(string(typeBytes), string(timeBytes), str)
+	}
+
+	return 0, nil
 }
