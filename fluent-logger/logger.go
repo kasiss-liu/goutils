@@ -92,6 +92,14 @@ func Error(mark, content string, t time.Time) error {
 	return errors.New("Wrong Mark: " + mark)
 }
 
+//自定义写入前缀
+func Write(mark, prefix, content string, t time.Time) error {
+	if logger, ok := loggers[mark]; ok {
+		return logger.Log(prefix, content, t)
+	}
+	return errors.New("Wrong Mark: " + mark)
+}
+
 //注册一个新的文件写入器到池
 func RegisterFileLogger(mark, dir, prefix string, mode int) bool {
 	//验证写入器是否已经存在

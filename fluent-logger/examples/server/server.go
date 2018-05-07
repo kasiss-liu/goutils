@@ -3,13 +3,17 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
+	"strings"
+	"time"
 
 	"github.com/kasiss-liu/go-tools/fluent-logger"
 	"github.com/kasiss-liu/go-tools/load-config"
 )
 
 func main() {
+	//读取配置 获取到writers
 	config := loadConfig.New("loggers", "./config/server.json")
 	writers, err := config.Get("writers").Array()
 
@@ -17,7 +21,7 @@ func main() {
 		fmt.Println("Error:", err.Error())
 		return
 	}
-
+	//注册每个配置里的writer
 	for _, m := range writers {
 		if writer, ok := m.(map[string]interface{}); ok {
 			dir := writer["dir"].(string)
@@ -36,15 +40,16 @@ func main() {
 			}
 		}
 	}
+	//启动日志处理器
 	err = fluentLogger.StartLogger()
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 		return
 	}
-
+	//准备启动一个socket server 用来接收数据
 	var addrPort string
 	var sType string
-
+	//读取配置
 	server, err := config.Get("server").MapString()
 	if err != nil {
 		fmt.Println("Error:", err.Error())
@@ -62,59 +67,116 @@ func main() {
 	} else {
 		sType = stype
 	}
+	//启动tcp server
 	netServer, err := net.Listen(sType, addrPort)
 	if err != nil {
 		fmt.Println("Error:", err.Error())
 		return
 	}
+	//监听接入
 	for {
 		conn, err := netServer.Accept()
 		if err != nil {
 			fmt.Println("AcceptError:", err.Error())
 			continue
 		}
-
-		//		var data = make([]byte, 1024)
-		//		conn.Read(data)
-		fmt.Println("start exec")
+		//处理数据
 		go setDataToChan(conn)
-		//		reader := bufio.NewReader(conn)
-		//		n := reader.Size()
-		//		strBytes := make([]byte, 0, n)
-		//		reader.Read(strBytes)
-		//		fmt.Printf("%d,%#v", n, string(strBytes))
 	}
 
 }
 
-func setDataToChan(conn net.Conn) (int, error) {
+//goroutiue 处理client输入数据
+func setDataToChan(conn net.Conn) (err error) {
 
+	conn.SetReadDeadline(time.Now().Add(time.Minute * 1))
 	defer conn.Close()
-	//然后读取第一个空格之前的内容
-	reader := bufio.NewReader(conn)
+
+	lineReader := bufio.NewReader(conn)
 	for {
-
-		//删除最后一位的换行 \r\n
-
+		input, err := lineReader.ReadString('\n')
+		if err != nil {
+			if err.Error() == io.EOF {
+				fmt.Println("Conn Closed")
+			}
+			fmt.Println("read line:", err.Error())
+			return nil
+		}
+		//判断接入是否需要退出
+		if isClose(input) {
+			conn.Write([]byte("bye bye"))
+			return nil
+		}
+		//读取处理获取到的string
+		reader := bufio.NewReader(strings.NewReader(input))
+		//然后读取第一个空格之前的内容
+		markBytes, err := reader.ReadBytes(byte(' '))
+		if err != nil {
+			fmt.Println("mark:", err.Error())
+			return err
+		}
+		mark := strings.Trim(string(markBytes), " ")
+		//然后读取第二个空格之前的内容
 		typeBytes, err := reader.ReadBytes(byte(' '))
 		if err != nil {
-			fmt.Println(err.Error())
-			return 0, err
+			fmt.Println("type:", err.Error())
+			return err
 		}
-		//然后读取第二个空格之前的内容
-		timeBytes, err := reader.ReadBytes(byte(' '))
+		stype := strings.Trim(string(typeBytes), " ")
+		//读取接下来的20个字符 作为时间
+		timeStampBytes := make([]byte, 20)
+		_, err = reader.Read(timeStampBytes)
 		if err != nil {
-			fmt.Println(err.Error())
-			return 0, err
+			fmt.Println("time:", err.Error())
+			return err
+		}
+		timestamp := strings.Trim(string(timeStampBytes), " ")
+		timeNow, err := time.Parse("2006-01-02 15:04:05", timestamp)
+		if err != nil {
+			timeNow = time.Now()
 		}
 		//然后读取剩余内容
-		str, err := reader.ReadString('\n')
+		content, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Println(err.Error())
-			return 0, err
+			fmt.Println("surplus", err.Error())
+			return err
 		}
-		fmt.Println(string(typeBytes), string(timeBytes), str)
+		//删除最后一位的换行 \r\n
+		content = strings.TrimRight(content, "\r\n")
+		content = strings.TrimRight(content, "\n")
+
+		switch strings.ToUpper(stype) {
+		case "LOG":
+			err = fluentLogger.Log(mark, content, timeNow)
+		case "NOTICE":
+			err = fluentLogger.Notice(mark, content, timeNow)
+		case "WARNING":
+			err = fluentLogger.Warning(mark, content, timeNow)
+		case "ERROR":
+			err = fluentLogger.Error(mark, content, timeNow)
+		default:
+			err = fluentLogger.Write(mark, stype, content, timeNow)
+		}
+
+		if err != nil {
+			conn.Write([]byte(err.Error()))
+		} else {
+			conn.Write([]byte("success\n"))
+		}
 	}
 
-	return 0, nil
+	return err
+}
+
+//验证两个简单的关闭规则
+func isClose(content string) bool {
+	if !strings.Contains(content, " ") {
+		order := strings.Trim(content, "\n")
+		order = strings.Trim(content, "\r\n")
+		order = strings.TrimSpace(content)
+		if order == "quit" || order == "q" {
+			return true
+		}
+	}
+	return false
 }

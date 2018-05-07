@@ -39,7 +39,7 @@ func BenchmarkLogger(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		Log("app", fmt.Sprintf("%s%d", "benchmark_", i), time.Now())
+		Log("app", fmt.Sprintf("%s%d", "Cras eu dolor lorem. Cras justo mauris, rhoncus in mauris ac, pellentesque pulvinar metus. Suspendisse consectetur consequat diam, ac dignissim mauris gravida vitae. Vestibulum blandit vestibulum mi a viverra.", i), time.Now())
 	}
 	logLock.Wait()
 }
