@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-//文件session仓库
+//FileStorage 文件session仓库
 type FileStorage struct {
 	storagePath string
 	prefix      string
@@ -33,7 +33,7 @@ type fileSession struct {
 	ActTime int64
 }
 
-//保存session
+//Save 保存session
 //向http请求中写入数据并保存到session内容至文件
 func (fs *FileStorage) Save(w http.ResponseWriter, r *http.Request, sess *Session) error {
 	fs.rwLock.Lock()
@@ -62,14 +62,14 @@ func (fs *FileStorage) Save(w http.ResponseWriter, r *http.Request, sess *Sessio
 	return nil
 }
 
-//从http请求的cookie中获取sessionID 并读取相应的session文件
+//Get 从http请求的cookie中获取sessionID 并读取相应的session文件
 //返回*Session
 func (fs *FileStorage) Get(r *http.Request, name string) (*Session, error) {
 	fs.rwLock.RLock()
 	defer fs.rwLock.RUnlock()
 	//从map中获取session文件名 然后读取session文件
-	if sess_name, ok := fs.list[name]; ok {
-		content, err := fs.readSessionFile(sess_name)
+	if sessName, ok := fs.list[name]; ok {
+		content, err := fs.readSessionFile(sessName)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +79,7 @@ func (fs *FileStorage) Get(r *http.Request, name string) (*Session, error) {
 	return nil, errors.New("session lost")
 }
 
-//删除session 并将对应的session文件删除
+//Del 删除session 并将对应的session文件删除
 func (fs *FileStorage) Del(name string) {
 	fs.rwLock.Lock()
 	defer fs.rwLock.Unlock()
@@ -89,7 +89,7 @@ func (fs *FileStorage) Del(name string) {
 	}
 }
 
-//session回收
+//GC session回收
 //每秒轮询list内的session数据
 //如果文件内容损坏、
 //如果文件丢失、
@@ -206,7 +206,7 @@ func (fs *FileStorage) transGetValueType(s map[string]interface{}) (i map[interf
 	return
 }
 
-//初始化一个文件session仓库
+//NewFileSessionStorage 初始化一个文件session仓库
 //判断存储路径是否可用（是否存在、是否可写）
 //设置文件存储路径
 //设置session文件的前缀prefix

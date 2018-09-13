@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+//IWriter 写入器接口
 type IWriter interface {
 	Write([]byte) (int, error)
 	WriteString(string) (int, error)
@@ -20,12 +21,12 @@ type IWriter interface {
 //按天分割
 //按小时分割
 const (
-	PARTITION_NONE = iota
-	PARTITION_DAY
-	PARTITION_HOUR
+	PartitionNone = iota
+	PartitionDay
+	PartitionHour
 )
 
-//日志写入器
+//FileWriter 日志写入器
 type FileWriter struct {
 	fLock  sync.Mutex
 	prefix string
@@ -35,19 +36,21 @@ type FileWriter struct {
 	fname  string
 }
 
+//Write 进行byte写操作
 func (fw *FileWriter) Write(bs []byte) (int, error) {
 	fw.fLock.Lock()
 	defer fw.fLock.Unlock()
 	return io.WriteString(fw.file, string(bs))
 }
 
+//WriteString 进行字符串写操作
 func (fw *FileWriter) WriteString(s string) (int, error) {
 	fw.fLock.Lock()
 	defer fw.fLock.Unlock()
 	return io.WriteString(fw.file, s)
 }
 
-//每次写入前校验一下是否被分割
+//Prepare 每次写入前校验一下是否被分割
 func (fw *FileWriter) Prepare() error {
 	//如果文件地址未改变 则不处理
 	if fw.ensureFileName() {
@@ -71,12 +74,12 @@ func (fw *FileWriter) ensureFileName() bool {
 	//计算新的文件名
 	var filename string
 	switch fw.mode {
-	case PARTITION_NONE:
+	case PartitionNone:
 		filename = fw.path + "/" + fw.prefix + ".log"
-	case PARTITION_DAY:
+	case PartitionDay:
 		y, m, d := time.Now().Date()
 		filename = fw.path + "/" + fw.prefix + fmt.Sprintf("_%d%02d%02d", y, m, d) + ".log"
-	case PARTITION_HOUR:
+	case PartitionHour:
 		t := time.Now()
 		y, m, d := t.Date()
 		h := t.Hour()
@@ -92,11 +95,12 @@ func (fw *FileWriter) ensureFileName() bool {
 	return same
 }
 
-//主动关闭文件资源
+//Close 主动关闭文件资源
 func (fw *FileWriter) Close() error {
 	return fw.file.Close()
 }
 
+//NewFileWriter 新生成文件写入器
 func NewFileWriter(dir, prefix string, mode int) *FileWriter {
 	err := syscall.Access(dir, syscall.O_RDWR)
 	if err != nil {

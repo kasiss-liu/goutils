@@ -55,17 +55,17 @@ func main() {
 		fmt.Println("Error:", err.Error())
 		return
 	}
-	if addr, ok := (server["AddrPort"]).(string); !ok {
+	if addr, ok := (server["AddrPort"]).(string); ok {
+		addrPort = addr
+	} else {
 		fmt.Println("Error:", "Wrong AddrPort Type, Need string")
 		return
-	} else {
-		addrPort = addr
 	}
-	if stype, ok := (server["type"]).(string); !ok {
+	if stype, ok := (server["type"]).(string); ok {
+		sType = stype
+	} else {
 		fmt.Println("Error:", "Wrong Type, Need string")
 		return
-	} else {
-		sType = stype
 	}
 	//启动tcp server
 	netServer, err := net.Listen(sType, addrPort)
@@ -96,16 +96,16 @@ func setDataToChan(conn net.Conn) (err error) {
 	for {
 		input, err := lineReader.ReadString('\n')
 		if err != nil {
-			if err.Error() == io.EOF {
+			if err == io.EOF {
 				fmt.Println("Conn Closed")
 			}
 			fmt.Println("read line:", err.Error())
-			return nil
+			break
 		}
 		//判断接入是否需要退出
 		if isClose(input) {
 			conn.Write([]byte("bye bye"))
-			return nil
+			break
 		}
 		//读取处理获取到的string
 		reader := bufio.NewReader(strings.NewReader(input))
@@ -113,14 +113,14 @@ func setDataToChan(conn net.Conn) (err error) {
 		markBytes, err := reader.ReadBytes(byte(' '))
 		if err != nil {
 			fmt.Println("mark:", err.Error())
-			return err
+			break
 		}
 		mark := strings.Trim(string(markBytes), " ")
 		//然后读取第二个空格之前的内容
 		typeBytes, err := reader.ReadBytes(byte(' '))
 		if err != nil {
 			fmt.Println("type:", err.Error())
-			return err
+			break
 		}
 		stype := strings.Trim(string(typeBytes), " ")
 		//读取接下来的20个字符 作为时间
@@ -128,7 +128,7 @@ func setDataToChan(conn net.Conn) (err error) {
 		_, err = reader.Read(timeStampBytes)
 		if err != nil {
 			fmt.Println("time:", err.Error())
-			return err
+			break
 		}
 		timestamp := strings.Trim(string(timeStampBytes), " ")
 		timeNow, err := time.Parse("2006-01-02 15:04:05", timestamp)
@@ -139,7 +139,7 @@ func setDataToChan(conn net.Conn) (err error) {
 		content, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("surplus", err.Error())
-			return err
+			break
 		}
 		//删除最后一位的换行 \r\n
 		content = strings.TrimRight(content, "\r\n")

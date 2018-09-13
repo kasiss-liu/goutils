@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-//Session仓库接口
+//Storage Session仓库接口
 //Get Save Del GC
 type Storage interface {
 	Save(http.ResponseWriter, *http.Request, *Session) error
@@ -18,10 +18,10 @@ type Storage interface {
 //session仓库
 var storage Storage
 
-//生成一个新的session类
+//NewSession 生成一个新的session类
 func NewSession(path, domain string, maxage int, secure, httponly bool) *Session {
 	cookieOpt := &CookieOptions{path, domain, maxage, secure, httponly}
-	id := createSessionId()
+	id := createSessionID()
 	return &Session{
 		ID:      id,
 		Options: cookieOpt,
@@ -32,7 +32,7 @@ func NewSession(path, domain string, maxage int, secure, httponly bool) *Session
 	}
 }
 
-//从请求中获取session
+//GetSession 从请求中获取session
 func GetSession(r *http.Request) (*Session, error) {
 	cookie, err := r.Cookie(cookieSessionName)
 	if err == nil {
@@ -41,13 +41,14 @@ func GetSession(r *http.Request) (*Session, error) {
 	return nil, errors.New("no session")
 }
 
-//主动删除session
+//DelSession 主动删除session
 func DelSession(w http.ResponseWriter, sess *Session) {
 	storage.Del(sess.ID)
 	sess.Options.MaxAge = -1
 	http.SetCookie(w, NewCookie(sess))
 }
 
+//CunstomSessionStorage 自定义存储引擎
 func CunstomSessionStorage(store Storage) {
 	storage = store
 }

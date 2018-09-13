@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-//实现一个仓库接口
+//MemStorage 实现一个仓库接口
 //session存储于内存中，服务重启后丢失
 type MemStorage struct {
 	list   map[string]*Session
 	rwLock sync.RWMutex
 }
 
-//仓库save方法 将sessionId数据写入cookie返回到客户端
+//Save 仓库save方法 将sessionId数据写入cookie返回到客户端
 //并将session内容存入内存仓库
 func (ms *MemStorage) Save(w http.ResponseWriter, r *http.Request, sess *Session) error {
 	ms.rwLock.Lock()
@@ -30,7 +30,7 @@ func (ms *MemStorage) Save(w http.ResponseWriter, r *http.Request, sess *Session
 
 }
 
-//从仓库中获取一个session
+//Get 从仓库中获取一个session
 func (ms *MemStorage) Get(r *http.Request, name string) (*Session, error) {
 	ms.rwLock.RLock()
 	defer ms.rwLock.RUnlock()
@@ -47,14 +47,14 @@ func (ms *MemStorage) Get(r *http.Request, name string) (*Session, error) {
 	return nil, errors.New("session lost")
 }
 
-//从仓库中删除一个session
+//Del 从仓库中删除一个session
 func (ms *MemStorage) Del(name string) {
 	ms.rwLock.Lock()
 	defer ms.rwLock.Unlock()
 	delete(ms.list, name)
 }
 
-//仓库内过期session清除
+//GC 仓库内过期session清除
 //每秒钟筛选一遍
 func (ms *MemStorage) GC() {
 	go func() {
@@ -72,7 +72,7 @@ func (ms *MemStorage) GC() {
 
 }
 
-//生成一个新的内存session仓库
+//NewMemSessionStorage 生成一个新的内存session仓库
 func NewMemSessionStorage() Storage {
 	return &MemStorage{list: make(map[string]*Session, 100)}
 }

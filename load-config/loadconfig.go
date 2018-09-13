@@ -140,7 +140,7 @@ func (c *Config) ArrayString() ([]string, error) {
 	return make([]string, 0, 0), errors.New("value is not stringArray type")
 }
 
-//ArrayString to return a []interface{} slice
+//Array to return a []interface{} slice
 // if the type wrong error will be returned
 func (c *Config) Array() ([]interface{}, error) {
 	if ifv, ok := (c.content).([]interface{}); ok {
@@ -169,6 +169,7 @@ func (c *Config) MapString() (map[string]interface{}, error) {
 	return make(map[string]interface{}), errors.New("value is not stringArray type")
 }
 
+//Interface 判断一个数据的类型是interface{} 并返回
 func (c *Config) Interface() (interface{}, error) {
 	if m, ok := (c.content).(interface{}); ok {
 		return m, nil

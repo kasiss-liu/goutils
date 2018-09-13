@@ -33,14 +33,14 @@ func TestTxExecute(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	//写入一条新数据
-	insertId := query.Table("user").Create(map[string]interface{}{"name": "john1", "age": 28})
-	if insertId == 0 {
+	insertID := query.Table("user").Create(map[string]interface{}{"name": "john1", "age": 28})
+	if insertID == 0 {
 		t.Fatal(query.GetLastError())
 	} else {
-		fmt.Println("insertId:", insertId)
+		fmt.Println("insertId:", insertID)
 	}
 	//查询插入的新数据
-	user := query.Table("user").Where("id", insertId, "=").QueryOne()
+	user := query.Table("user").Where("id", insertID, "=").QueryOne()
 	fmt.Println("user:", user)
 	//修改插入的数据
 	affectedRows := query.Table("user").Where("name", "john1", "=").Update(map[string]interface{}{"age": 29})
@@ -50,7 +50,7 @@ func TestTxExecute(t *testing.T) {
 		fmt.Println("affectedRows:", affectedRows)
 	}
 	//删除插入的数据
-	deleteRows := query.Table("user").Where("id", insertId, "=").Delete()
+	deleteRows := query.Table("user").Where("id", insertID, "=").Delete()
 	if deleteRows == 0 {
 		t.Error(query.GetLastError())
 	} else {
@@ -75,11 +75,11 @@ func TestCreateBatch(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	//写入一条新数据
-	insertId := query.Table("user").CreateBatch([]map[string]interface{}{{"name": "john1", "age": 28}, {"name": "john2", "age": 29}})
-	if insertId == 0 {
+	insertID := query.Table("user").CreateBatch([]map[string]interface{}{{"name": "john1", "age": 28}, {"name": "john2", "age": 29}})
+	if insertID == 0 {
 		t.Fatal(query.GetLastError())
 	} else {
-		fmt.Println("insertId:", insertId)
+		fmt.Println("insertId:", insertID)
 	}
 
 	//打印sql
@@ -143,9 +143,9 @@ func TestExecRaw(t *testing.T) {
 
 	//正常查询
 	result := query.ExecRaw("update `user` set `name` = ? where id = ?", "Ashi", "1")
-	lastInsertId, _ := result.LastInsertId()
+	lastInsertID, _ := result.LastInsertId()
 	rowsAffected, _ := result.RowsAffected()
-	fmt.Println("LastInsertId:", lastInsertId, "RowsAffected:", rowsAffected)
+	fmt.Println("LastInsertId:", lastInsertID, "RowsAffected:", rowsAffected)
 
 	//获取最后一条执行的sql
 	fmt.Println("last sql:", query.GetLastSQL())

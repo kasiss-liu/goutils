@@ -8,7 +8,7 @@ import (
 
 func TestLogger(t *testing.T) {
 
-	RegisterFileLogger("test", "./test", "testlogger", PARTITION_NONE)
+	RegisterFileLogger("test", "./test", "testlogger", PartitionNone)
 	err := StartLogger()
 	if err != nil {
 		t.Log(err.Error())
@@ -32,7 +32,7 @@ func TestLogger(t *testing.T) {
 }
 
 func BenchmarkLogger(b *testing.B) {
-	RegisterFileLogger("app", "./test", "benchmark_new", PARTITION_NONE)
+	RegisterFileLogger("app", "./test", "benchmark_new", PartitionNone)
 	err := StartLogger()
 	if err != nil {
 		b.Log(err.Error())

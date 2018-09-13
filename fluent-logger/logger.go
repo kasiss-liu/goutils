@@ -14,6 +14,7 @@ type logData struct {
 	time     time.Time
 }
 
+//定义一些必要的参数
 var (
 	loggers           map[string]Logger //写入器池
 	DefaultLogChanLen = 100             //默认日志数据通道长度
@@ -26,13 +27,13 @@ func init() {
 	loggers = make(map[string]Logger, DefaultLoggers)
 }
 
-//写入器结构
+//Logger 写入器结构
 type Logger struct {
 	writer     IWriter
 	logChannel chan logData
 }
 
-//普通log数据记录 向通道内写入数据
+//Log 普通log数据记录 向通道内写入数据
 func (l *Logger) Log(dataType, content string, t time.Time) error {
 	l.logChannel <- logData{dataType: dataType, content: content, time: t}
 	//写入一次 计数器+1
@@ -60,7 +61,7 @@ func (l *Logger) writeLog(c logData) {
 	logLock.Done()
 }
 
-//外部调用日志
+//Log 外部调用日志
 func Log(mark, content string, t time.Time) error {
 	if logger, ok := loggers[mark]; ok {
 		return logger.Log("Log", content, t)
@@ -68,7 +69,7 @@ func Log(mark, content string, t time.Time) error {
 	return errors.New("Wrong Mark: " + mark)
 }
 
-//外部调用notice
+//Notice 外部调用notice
 func Notice(mark, content string, t time.Time) error {
 	if logger, ok := loggers[mark]; ok {
 		return logger.Log("Notice", content, t)
@@ -76,7 +77,7 @@ func Notice(mark, content string, t time.Time) error {
 	return errors.New("Wrong Mark: " + mark)
 }
 
-//外部调用warning
+//Warning 外部调用warning
 func Warning(mark, content string, t time.Time) error {
 	if logger, ok := loggers[mark]; ok {
 		return logger.Log("Warning", content, t)
@@ -84,7 +85,7 @@ func Warning(mark, content string, t time.Time) error {
 	return errors.New("Wrong Mark: " + mark)
 }
 
-//外部调用error
+//Error 外部调用error
 func Error(mark, content string, t time.Time) error {
 	if logger, ok := loggers[mark]; ok {
 		return logger.Log("Error", content, t)
@@ -92,7 +93,7 @@ func Error(mark, content string, t time.Time) error {
 	return errors.New("Wrong Mark: " + mark)
 }
 
-//自定义写入前缀
+//Write 自定义写入前缀
 func Write(mark, prefix, content string, t time.Time) error {
 	if logger, ok := loggers[mark]; ok {
 		return logger.Log(prefix, content, t)
@@ -100,7 +101,7 @@ func Write(mark, prefix, content string, t time.Time) error {
 	return errors.New("Wrong Mark: " + mark)
 }
 
-//注册一个新的文件写入器到池
+//RegisterFileLogger 注册一个新的文件写入器到池
 func RegisterFileLogger(mark, dir, prefix string, mode int) bool {
 	//验证写入器是否已经存在
 	if _, ok := loggers[mark]; ok {
@@ -113,10 +114,10 @@ func RegisterFileLogger(mark, dir, prefix string, mode int) bool {
 	return true
 }
 
-//启动日志写入器
+//StartLogger 启动日志写入器
 func StartLogger() error {
 	if len(loggers) < 1 {
-		return errors.New("No loggers registered !")
+		return errors.New("No loggers registered ! ")
 	}
 	for _, v := range loggers {
 		go v.monitorChannel()

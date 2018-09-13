@@ -7,7 +7,7 @@ import (
 var testDir = "./test/"
 
 func TestPartitionNoneWriter(t *testing.T) {
-	fwriter := NewFileWriter("./test", "test", PARTITION_NONE)
+	fwriter := NewFileWriter("./test", "test", PartitionNone)
 	err := fwriter.Prepare()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -33,7 +33,7 @@ func TestPartitionNoneWriter(t *testing.T) {
 }
 
 func TestPartitionDayWriter(t *testing.T) {
-	fwriter := NewFileWriter("./test", "test", PARTITION_DAY)
+	fwriter := NewFileWriter("./test", "test", PartitionDay)
 	err := fwriter.Prepare()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -59,7 +59,7 @@ func TestPartitionDayWriter(t *testing.T) {
 }
 
 func TestPartitionHourWriter(t *testing.T) {
-	fwriter := NewFileWriter("./test", "test", PARTITION_HOUR)
+	fwriter := NewFileWriter("./test", "test", PartitionHour)
 	err := fwriter.Prepare()
 	if err != nil {
 		t.Fatal(err.Error())
