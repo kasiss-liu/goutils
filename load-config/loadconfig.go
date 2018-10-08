@@ -179,11 +179,21 @@ func (c *Config) Interface() (interface{}, error) {
 
 //New to make a new Confit struct and returned
 func New(name string, filepath string) *Config {
-	cType := path.Ext(filepath)
-	cType = strings.Trim(cType, ".")
-	content, error := ReadConfigFile(filepath, cType)
-	if error != nil {
+
+	config, err := NewConfig(name, filepath)
+	if err != nil {
 		return &Config{}
 	}
-	return &Config{name, filepath, cType, content}
+	return config
+}
+
+//NewConfig returns Config and error
+func NewConfig(name, filepath string) (*Config, error) {
+	cType := path.Ext(filepath)
+	cType = strings.Trim(cType, ".")
+	content, err := ReadConfigFile(filepath, cType)
+	if err != nil {
+		return &Config{}, err
+	}
+	return &Config{name, filepath, cType, content}, nil
 }

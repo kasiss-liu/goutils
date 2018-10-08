@@ -17,8 +17,8 @@ import (
 // to check the file type and prepare to read config file
 func ReadConfigFile(filepath string, cType string) (map[string]interface{}, error) {
 
-	_, error := os.Stat(filepath)
-	if error != nil {
+	_, err := os.Stat(filepath)
+	if err != nil {
 		return nil, errors.New("Config file is not Exist")
 	}
 	switch cType {
