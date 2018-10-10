@@ -158,3 +158,19 @@ func TestExecRaw(t *testing.T) {
 	//事务提交
 	query.Rollback()
 }
+
+func TestJoin(t *testing.T) {
+	config := NewDbConfig("127.0.0.1", 3306, "root", "123qwe", "test", "utf8")
+	query, err := NewQueryWithConfig(config)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = query.Ping()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	sql := query.Table("users as u").LeftJoin("student as s", "s.uid", "u.id", "=").Select("u.name", "u.age").GroupBy("s.class").GroupBy("s.team").OrderBy("u.id", "desc").ToSql()
+	fmt.Println(sql)
+}

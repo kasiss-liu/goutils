@@ -29,12 +29,21 @@ type Query struct {
 	isLogQuery bool
 	errors     []string
 	lastSQL    string
+	joins      []join
 }
 
 type where struct {
 	field   string
 	compare string
 	value   interface{}
+}
+
+type join struct {
+	joinType  string
+	joinTable string
+	onLeft    string
+	onRight   string
+	compare   string
 }
 
 type queryResult struct {
@@ -328,6 +337,7 @@ func (q *Query) compactQuery() {
 	q.resetStmt()
 	q.compactSelect()
 	q.compactTable()
+	q.compactJoin()
 	q.compactWhere()
 	q.compactGroup()
 	q.compactOrder()
@@ -350,7 +360,7 @@ func (q *Query) compactSelect() {
 //拼接table
 func (q *Query) compactTable() {
 
-	q.sql += " from `" + q.table + "` "
+	q.sql += " from " + q.table + " "
 }
 
 //拼接where
@@ -396,7 +406,7 @@ func (q *Query) compactGroup() {
 		q.sql += " group by "
 		var gString string
 		for _, v := range q.group {
-			gString += "`" + v + "`,"
+			gString += v + ","
 		}
 		gString = strings.Trim(gString, ",")
 		q.sql += gString
@@ -409,7 +419,7 @@ func (q *Query) compactOrder() {
 		q.sql += " order by "
 		for _, stringMap := range q.order {
 			for k, v := range stringMap {
-				q.sql += "`" + k + "` " + v + ","
+				q.sql += k + " " + v + ","
 			}
 		}
 		q.sql = strings.Trim(q.sql, ",")
@@ -802,4 +812,59 @@ func (q *Query) Reset() {
 		q.Rollback()
 	}
 	q = NewQuery(q.conn)
+}
+
+//LeftJoin 增加一个左联查询 并添加连接条件
+func (q *Query) LeftJoin(table, onLeft, onRight, compare string) *Query {
+	q.joins = append(q.joins, join{
+		joinType:  "left join",
+		joinTable: table,
+		onLeft:    onLeft,
+		onRight:   onRight,
+		compare:   compare,
+	})
+	return q
+}
+
+//RightJoin 增加一个右联查询 并添加连接条件
+func (q *Query) RightJoin(table, onLeft, onRight, compare string) *Query {
+	q.joins = append(q.joins, join{
+		joinType:  "right join",
+		joinTable: table,
+		onLeft:    onLeft,
+		onRight:   onRight,
+		compare:   compare,
+	})
+	return q
+}
+
+//InnerJoin 增加一个内联查询 并添加连接条件
+func (q *Query) InnerJoin(table, onLeft, onRight, compare string) *Query {
+	q.joins = append(q.joins, join{
+		joinType:  "inner join",
+		joinTable: table,
+		onLeft:    onLeft,
+		onRight:   onRight,
+		compare:   compare,
+	})
+	return q
+}
+
+//拼接内联语句
+func (q *Query) compactJoin() {
+	if len(q.joins) < 1 {
+		return
+	}
+
+	for _, v := range q.joins {
+		q.sql += v.joinType + " on "
+		q.sql += v.onLeft + " " + v.compare + " " + v.onRight + " "
+
+	}
+}
+
+//Tosql 返回一个拼接后的sql
+func (q *Query) ToSql() string {
+	q.compactQuery()
+	return q.sql
 }
