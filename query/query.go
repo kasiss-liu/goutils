@@ -7,6 +7,8 @@ import (
 	"strings"
 	//引入mysql层
 	_ "github.com/go-sql-driver/mysql"
+	//引入sqlite3库
+	_ "github.com/mattn/go-sqlite3"
 )
 
 //Query query结构体
@@ -87,6 +89,15 @@ func NewQueryWithConfig(conf *DbConfig) (*Query, error) {
 	}
 	return NewQuery(db), nil
 
+}
+
+//NewQueryWithSqlite 返回一个sqliteDB链接的query结构
+func NewQueryWithSqlite(dbPath string) (*Query, error) {
+	sqlite, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return NewQuery(sqlite), nil
 }
 
 //mysql连接
