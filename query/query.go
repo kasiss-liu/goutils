@@ -216,6 +216,21 @@ func (q *Query) Query() *queryResult {
 	return q.get(rows)
 }
 
+//Count 将更改sql变为查询一个语句的总行数
+//例如 select count(1) as num from table where id > 10
+func (q *Query) Count() int {
+	q.fields = []string{"count(1) as num"}
+	result := q.QueryOne()
+	if result != nil {
+		num, err := strconv.Atoi(result["num"])
+		if err != nil {
+			return 0
+		}
+		return num
+	}
+	return 0
+}
+
 //QueryOne 查询单条记录
 func (q *Query) QueryOne() map[string]string {
 	q.limit = 1
@@ -243,7 +258,7 @@ func (q *Query) QueryOne() map[string]string {
 	results := q.get(rows)
 	//清理临时数据
 	q.resetAll()
-	if len(results.Value) > 0 {
+	if results.RowsNum > 0 {
 		return results.Value[0]
 	}
 	return nil
