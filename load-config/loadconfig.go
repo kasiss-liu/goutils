@@ -15,6 +15,11 @@ type Config struct {
 	content interface{}
 }
 
+//Path Return config file path
+func (c *Config) Path() string {
+	return c.path
+}
+
 //Get key return a struct of Config
 //to Get Value by a Key
 func (c *Config) Get(k interface{}) *Config {
@@ -196,4 +201,9 @@ func NewConfig(name, filepath string) (*Config, error) {
 		return &Config{}, err
 	}
 	return &Config{name, filepath, cType, content}, nil
+}
+
+//传入数据构建一个可以用来简单查找的结构
+func BuildConfig(content interface{}) *Config {
+	return &Config{"", "", "", content}
 }
