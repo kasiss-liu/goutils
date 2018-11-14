@@ -2,6 +2,7 @@ package loadConfig
 
 import (
 	"errors"
+	"fmt"
 	"path"
 	"strings"
 )
@@ -180,6 +181,16 @@ func (c *Config) Interface() (interface{}, error) {
 		return m, nil
 	}
 	return nil, errors.New("value is not interface{} type")
+}
+
+//判断当前数据是否是nil
+func (c *Config) IsNil() bool {
+	return c.content == nil
+}
+
+//获取当前对象content的类型
+func (c *Config) Type() string {
+	return fmt.Sprintf("%T", c.content)
 }
 
 //New to make a new Confit struct and returned
