@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -214,11 +216,11 @@ func NewFileSessionStorage(path string, prefix ...string) Storage {
 	var sessionPrefix string
 	var err error
 	//判断路径是否可写
-	//	if runtime.GOOS != "windows" {
-	//		if err = syscall.Access(path, syscall.O_RDWR); err != nil {
-	//			panic(err.Error())
-	//		}
-	//	}
+	if runtime.GOOS != "windows" {
+		if err = syscall.Access(path, syscall.O_RDWR); err != nil {
+			panic(err.Error())
+		}
+	}
 
 	//获取定义的session前缀（可选）
 	if len(prefix) > 0 {

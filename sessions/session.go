@@ -86,23 +86,27 @@ func NewCookie(s *Session) *http.Cookie {
 	return cookie
 }
 
+//随机数因子
+//用以解决windows下出现的同一时刻
+//会产生同一随机数的问题
+var randSeed int64 = 0
+
 //生成随机sessionId
 func createSessionID() string {
-
+	rand.Seed(time.Now().UnixNano())
 	var result bytes.Buffer
 	var temp string
 	for i := 0; i < 10; {
 		temp = getChar()
 		result.WriteString(temp)
 		i++
-
 	}
+	randSeed++
 	return result.String()
 }
 
 //获取随机字符串
 func getChar() string {
-	rand.Seed(time.Now().UnixNano())
 	switch rand.Intn(3) {
 	case 0:
 		return string(65 + rand.Intn(90-65))
