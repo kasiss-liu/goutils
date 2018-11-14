@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -217,7 +216,8 @@ func NewFileSessionStorage(path string, prefix ...string) Storage {
 	var err error
 	//判断路径是否可写
 	if runtime.GOOS != "windows" {
-		if err = syscall.Access(path, syscall.O_RDWR); err != nil {
+		_, err = os.Stat(path)
+		if os.IsNotExist(err) || os.IsPermission(err) {
 			panic(err.Error())
 		}
 	}
