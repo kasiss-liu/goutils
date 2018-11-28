@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-type Builder struct {
+//Cron 结构体
+type Cron struct {
 	Second     string
 	Minute     string
 	Hour       string
@@ -16,63 +17,87 @@ type Builder struct {
 	isSec      bool
 }
 
-func NewCron() *Builder {
-	return &Builder{isSec: false}
+//构建一个新的空 cron  秒级默认关闭
+func NewCron() *Cron {
+	return &Cron{isSec: false}
 }
-func NewCronWithExpress(exp string) (cron *Builder, err error) {
+
+//根据表达式创建一个cron结构
+func NewCronWithExpress(exp string) (cron *Cron, err error) {
+	//解析表达式
 	cron, err = Parse(exp)
 	if err != nil {
 		return
 	}
-	err = cron.Valid()
+	//表达式项值验证
+	err = cron.ValidExpress()
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (b *Builder) SetSecond(s string) *Builder {
+//设置秒表达式
+func (b *Cron) SetSecond(s string) *Cron {
 	b.isSec = true
 	b.Second = s
 	return b
 }
-func (b *Builder) SetIsSec(i bool) *Builder {
+
+//设置是否开启秒级锁
+func (b *Cron) SetIsSec(i bool) *Cron {
 	b.isSec = i
 	return b
 }
 
-func (b *Builder) SetMinute(m string) *Builder {
+//设置分钟表达式
+func (b *Cron) SetMinute(m string) *Cron {
 	b.Minute = m
 	return b
 }
 
-func (b *Builder) SetHour(h string) *Builder {
+//设置小时表达式
+func (b *Cron) SetHour(h string) *Cron {
 	b.Hour = h
 	return b
 }
-func (b *Builder) SetDayOfMonth(d string) *Builder {
+
+//设置每月天表达式
+func (b *Cron) SetDayOfMonth(d string) *Cron {
 	b.DayOfMonth = d
 	return b
 }
-func (b *Builder) SetMonth(m string) *Builder {
+
+//设置月份表达式
+func (b *Cron) SetMonth(m string) *Cron {
 	b.Month = m
 	return b
 }
-func (b *Builder) SetDayOfWeek(dow string) *Builder {
+
+//设置星期表达式
+func (b *Cron) SetDayOfWeek(dow string) *Cron {
 	b.DayOfWeek = dow
 	return b
 }
-func (b *Builder) SetYear(y string) *Builder {
+
+//设置年表达式
+func (b *Cron) SetYear(y string) *Cron {
+	if y == "" {
+		y = "*"
+	}
 	b.Year = y
 	return b
 }
-func (b *Builder) ToExpress() string {
+
+//将cron转化为字符串表达式
+func (b *Cron) ToExpress() string {
 	b.fillAttr()
 	s := b.getExpressSlice()
 	return strings.Join(s, " ")
 }
 
-func (b *Builder) getExpressSlice() []string {
+//拼凑表达式切片
+func (b *Cron) getExpressSlice() []string {
 	var s = make([]string, 0, 10)
 	if b.isSec {
 		s = append(s, b.Second)
@@ -86,7 +111,8 @@ func (b *Builder) getExpressSlice() []string {
 	return s
 }
 
-func (b *Builder) fillAttr() {
+//自动补齐cron空缺项 默认设置为*
+func (b *Cron) fillAttr() {
 	if b.isSec {
 		if b.Second == "" {
 			b.Second = "*"
@@ -112,7 +138,8 @@ func (b *Builder) fillAttr() {
 	}
 }
 
-func (b *Builder) Valid() error {
+//验证表达式是否正确
+func (b *Cron) ValidExpress() error {
 	var err error
 
 	if b.isSec {
@@ -154,40 +181,62 @@ func (b *Builder) Valid() error {
 
 	return nil
 }
-func (b *Builder) validSecond() error {
+
+//验证秒表达式
+func (b *Cron) validSecond() error {
 	sl := strings.Split(b.Second, ",")
 	return validExpress(ptypeSec, sl)
 }
-func (b *Builder) validMinute() error {
+
+//验证分钟表达式
+func (b *Cron) validMinute() error {
 	sl := strings.Split(b.Minute, ",")
 	return validExpress(ptypeMin, sl)
 }
-func (b *Builder) validHour() error {
+
+//验证小时表达式
+func (b *Cron) validHour() error {
 	sl := strings.Split(b.Hour, ",")
 	return validExpress(ptypeHour, sl)
 }
-func (b *Builder) validDom() error {
+
+//验证天表达式
+func (b *Cron) validDom() error {
 	sl := strings.Split(b.DayOfMonth, ",")
 	return validExpress(ptypeDom, sl)
 }
-func (b *Builder) validMonth() error {
+
+//验证月份表达式
+func (b *Cron) validMonth() error {
 	sl := strings.Split(b.Month, ",")
 	return validExpress(ptypeMon, sl)
 }
-func (b *Builder) validDow() error {
+
+//验证星期表达式
+func (b *Cron) validDow() error {
 	sl := strings.Split(b.DayOfWeek, ",")
 	return validExpress(ptypeDow, sl)
 }
-func (b *Builder) validYear() error {
+
+//验证年表达式
+func (b *Cron) validYear() error {
 	if b.Year == "" {
 		return nil
 	}
 	sl := strings.Split(b.Year, ",")
 	return validExpress(ptypeYear, sl)
 }
-func (b *Builder) validDDConflict() error {
+
+//校验天与星期的冲突
+func (b *Cron) validDDConflict() error {
 	if b.DayOfMonth == "?" && b.DayOfWeek == "?" {
 		return errors.New("dow and dom can not be ? in one express")
+	}
+	if b.DayOfMonth == "*" && (b.DayOfWeek != "*" && b.DayOfWeek != "?") {
+		return errors.New("dow and dom can not be conflict")
+	}
+	if (b.DayOfMonth != "*" && b.DayOfWeek != "?") && b.DayOfWeek == "*" {
+		return errors.New("dow and dom can not be conflict")
 	}
 	return nil
 }

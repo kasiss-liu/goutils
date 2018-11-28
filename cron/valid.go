@@ -1,16 +1,27 @@
 package cron
 
 import (
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func Valid(b *Builder, now time.Time) bool {
-	if err := b.Valid(); err != nil {
+//调试开关
+var validDebug = false
+
+//验证调试字段名称
+var validFaildField = ""
+
+//验证时间点是否符合表达式值
+func Valid(b *Cron, now time.Time) bool {
+	//debug下打印失败返回
+	defer printDebug()
+	if err := b.ValidExpress(); err != nil {
 		return false
 	}
+	//如果
 	if b.isSec {
 		if !validSecond(b.Second, now) {
 			return false
@@ -71,6 +82,7 @@ func validSecond(exp string, t time.Time) bool {
 			}
 		}
 	}
+	validFaildField = "Second"
 	return false
 }
 
@@ -97,6 +109,7 @@ func validMinute(exp string, t time.Time) bool {
 			}
 		}
 	}
+	validFaildField = "Minute"
 	return false
 }
 
@@ -123,6 +136,7 @@ func validHour(exp string, t time.Time) bool {
 			}
 		}
 	}
+	validFaildField = "Hour"
 	return false
 }
 
@@ -153,6 +167,7 @@ func validDom(exp string, t time.Time) bool {
 			}
 		}
 	}
+	validFaildField = "Dom"
 	return false
 }
 
@@ -179,10 +194,12 @@ func validMonth(exp string, t time.Time) bool {
 			}
 		}
 	}
+	validFaildField = "Month"
 	return false
 }
 
 func validDow(exp string, t time.Time) bool {
+
 	if strings.Contains(exp, "?") {
 		return true
 	}
@@ -211,11 +228,15 @@ func validDow(exp string, t time.Time) bool {
 			}
 		}
 	}
+	validFaildField = "Dow"
 	return false
 
 }
 
 func validYear(exp string, t time.Time) bool {
+	if exp == "" {
+		return true
+	}
 	reg := regexp.MustCompile(dowPattern)
 	exps := strings.Split(exp, ",")
 	s := t.Year()
@@ -238,6 +259,7 @@ func validYear(exp string, t time.Time) bool {
 			}
 		}
 	}
+	validFaildField = "Year"
 	return false
 }
 
@@ -268,4 +290,10 @@ func calDaysOfMonth(t time.Time) int {
 		maxdef = 30
 	}
 	return maxdef
+}
+
+func printDebug() {
+	if validDebug && validFaildField != "" {
+		log.Println(validFaildField + " valid failed")
+	}
 }

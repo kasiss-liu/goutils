@@ -41,7 +41,7 @@ var patternMap = map[string]string{
 	ptypeYear: yearPattern,
 }
 
-func Parse(express string) (*Builder, error) {
+func Parse(express string) (*Cron, error) {
 	//多个空格处理
 	reg := regexp.MustCompile(multiBlankReg)
 	express = reg.ReplaceAllString(express, " ")
@@ -73,7 +73,7 @@ func Parse(express string) (*Builder, error) {
 	default:
 		return nil, errors.New("parse error: illegal element count " + strconv.Itoa(len(es)))
 	}
-	if err := cron.Valid(); err != nil {
+	if err := cron.ValidExpress(); err != nil {
 		return nil, err
 	}
 	return cron, nil

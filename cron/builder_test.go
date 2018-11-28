@@ -7,11 +7,11 @@ import (
 
 func TestBuilder(t *testing.T) {
 
-	express := NewCron().SetMinute("*/2").SetHour("*").SetDayOfMonth("?/2").SetMonth("*").SetDayOfWeek("*").SetYear("*").Valid()
+	express := NewCron().SetMinute("*/2").SetHour("*").SetDayOfMonth("?/2").SetMonth("*").SetDayOfWeek("*").SetYear("*").ValidExpress()
 	t.Log(express)
 
 	cron2 := NewCron().SetMinute("*/2").SetHour("*").SetDayOfMonth("?").SetMonth("*").SetYear("*").SetDayOfWeek("?/3")
-	express2valid := cron2.Valid()
+	express2valid := cron2.ValidExpress()
 	if express2valid == nil {
 		express2 := cron2.ToExpress()
 		t.Log(express2)
@@ -37,6 +37,7 @@ func TestBuilder(t *testing.T) {
 }
 
 func TestValid(t *testing.T) {
+	validDebug = true
 	t.Log(time.Now().Format("2006-01-02 15:04:05"))
 	res := ValidExpressNow("* */5 10-20 * * ? *")
 	t.Log(res)
