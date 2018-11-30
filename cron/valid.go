@@ -21,7 +21,7 @@ func Valid(b *Cron, now time.Time) bool {
 	if err := b.ValidExpress(); err != nil {
 		return false
 	}
-	//如果
+	//如果cron为秒级 判断秒数
 	if b.isSec {
 		if !validSecond(b.Second, now) {
 			return false
@@ -47,6 +47,8 @@ func Valid(b *Cron, now time.Time) bool {
 	}
 	return true
 }
+
+//验证一个时间点 是否符合cron表达式
 func ValidExpress(exp string, t time.Time) bool {
 	cron, err := NewCronWithExpress(exp)
 	if err != nil {
@@ -55,10 +57,12 @@ func ValidExpress(exp string, t time.Time) bool {
 	return Valid(cron, t)
 }
 
+//判断now是否符合cron表达式
 func ValidExpressNow(exp string) bool {
 	return ValidExpress(exp, time.Now())
 }
 
+//验证秒
 func validSecond(exp string, t time.Time) bool {
 	reg := regexp.MustCompile(secPattern)
 	exps := strings.Split(exp, ",")
@@ -86,6 +90,7 @@ func validSecond(exp string, t time.Time) bool {
 	return false
 }
 
+//验证分钟
 func validMinute(exp string, t time.Time) bool {
 	reg := regexp.MustCompile(minPattern)
 	exps := strings.Split(exp, ",")
@@ -113,6 +118,7 @@ func validMinute(exp string, t time.Time) bool {
 	return false
 }
 
+//验证小时
 func validHour(exp string, t time.Time) bool {
 	reg := regexp.MustCompile(hourPattern)
 	exps := strings.Split(exp, ",")
@@ -140,6 +146,7 @@ func validHour(exp string, t time.Time) bool {
 	return false
 }
 
+//验证日期
 func validDom(exp string, t time.Time) bool {
 	if strings.Contains(exp, "?") {
 		return true
@@ -171,6 +178,7 @@ func validDom(exp string, t time.Time) bool {
 	return false
 }
 
+//验证月份
 func validMonth(exp string, t time.Time) bool {
 	reg := regexp.MustCompile(monthPattern)
 	exps := strings.Split(exp, ",")
@@ -198,6 +206,7 @@ func validMonth(exp string, t time.Time) bool {
 	return false
 }
 
+//验证星期
 func validDow(exp string, t time.Time) bool {
 
 	if strings.Contains(exp, "?") {
@@ -233,6 +242,7 @@ func validDow(exp string, t time.Time) bool {
 
 }
 
+//验证年
 func validYear(exp string, t time.Time) bool {
 	if exp == "" {
 		return true
@@ -263,6 +273,7 @@ func validYear(exp string, t time.Time) bool {
 	return false
 }
 
+//验证通用步进表达式
 func validPart(min, max, step, time int) bool {
 	if step == 0 {
 		step = 1
@@ -275,6 +286,7 @@ func validPart(min, max, step, time int) bool {
 	return false
 }
 
+//计算时间所在的月份天数
 func calDaysOfMonth(t time.Time) int {
 	maxdef := 31
 	switch t.Month() {
@@ -292,6 +304,7 @@ func calDaysOfMonth(t time.Time) int {
 	return maxdef
 }
 
+//debug 打印不符合要求的条件
 func printDebug() {
 	if validDebug && validFaildField != "" {
 		log.Println(validFaildField + " valid failed")

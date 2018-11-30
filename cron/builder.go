@@ -235,7 +235,7 @@ func (b *Cron) validDDConflict() error {
 	if b.DayOfMonth == "*" && (b.DayOfWeek != "*" && b.DayOfWeek != "?") {
 		return errors.New("dow and dom can not be conflict")
 	}
-	if (b.DayOfMonth != "*" && b.DayOfWeek != "?") && b.DayOfWeek == "*" {
+	if (b.DayOfMonth != "*" && b.DayOfMonth != "?") && b.DayOfWeek == "*" {
 		return errors.New("dow and dom can not be conflict")
 	}
 	return nil
