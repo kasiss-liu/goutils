@@ -50,6 +50,11 @@ func (b *Cron) SetIsSec(i bool) *Cron {
 	return b
 }
 
+//返回是否是秒级cron
+func (b *Cron) IsSec() bool {
+	return b.isSec
+}
+
 //设置分钟表达式
 func (b *Cron) SetMinute(m string) *Cron {
 	b.Minute = m
