@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	//引入mysql层
 	_ "github.com/go-sql-driver/mysql"
 	//引入sqlite3库
@@ -289,6 +290,9 @@ func (q *Query) QueryRaw(query string, v ...interface{}) *queryResult {
 
 //解析查询结果
 func (q *Query) get(rows *sql.Rows) *queryResult {
+	//延迟关闭结果资源
+	defer rows.Close()
+
 	cols, err := rows.Columns()
 	if err != nil {
 		println(cols)
