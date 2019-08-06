@@ -202,9 +202,8 @@ func (q *Query) Query() *queryResult {
 	//然后执行查询
 	var rows *sql.Rows
 	if err == nil {
-		rows, err = stmt.Query(q.stmtValue...)
-		defer rows.Close()
 		defer stmt.Close()
+		rows, err = stmt.Query(q.stmtValue...)
 		if err != nil {
 			return nil
 		}
@@ -249,7 +248,6 @@ func (q *Query) QueryOne() map[string]string {
 
 	}
 	rows, err = stmt.Query(q.stmtValue...)
-	defer rows.Close()
 	defer stmt.Close()
 	if err != nil {
 		q.saveError(err.Error())
@@ -282,7 +280,6 @@ func (q *Query) QueryRaw(query string, v ...interface{}) *queryResult {
 		q.saveError(err.Error())
 		return nil
 	}
-	defer rows.Close()
 	//清空临时数据
 	q.resetAll()
 	return q.get(rows)
