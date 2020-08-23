@@ -1,4 +1,4 @@
-package loadConfig
+package configmanager
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package loadConfig
+package configmanager
 
 import (
 	"errors"
@@ -183,12 +183,12 @@ func (c *Config) Interface() (interface{}, error) {
 	return nil, errors.New("value is not interface{} type")
 }
 
-//判断当前数据是否是nil
+//IsNil 判断当前数据是否是nil
 func (c *Config) IsNil() bool {
 	return c.content == nil
 }
 
-//获取当前对象content的类型
+//Type 获取当前对象content的类型
 func (c *Config) Type() string {
 	return fmt.Sprintf("%T", c.content)
 }
@@ -214,7 +214,7 @@ func NewConfig(name, filepath string) (*Config, error) {
 	return &Config{name, filepath, cType, content}, nil
 }
 
-//传入数据构建一个可以用来简单查找的结构
+//BuildConfig 传入数据构建一个可以用来简单查找的结构
 func BuildConfig(content interface{}) *Config {
 	return &Config{"", "", "", content}
 }
