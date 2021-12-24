@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kasiss-liu/go-tools/fluent-logger"
-	"github.com/kasiss-liu/go-tools/load-config"
+	fluentLogger "github.com/kasiss-liu/goutils/fluent-logger"
+	loadConfig "github.com/kasiss-liu/goutils/load-config"
 )
 
 func main() {
