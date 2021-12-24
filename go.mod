@@ -1,6 +1,6 @@
 module github.com/kasiss-liu/goutils
 
-go 1.16
+go 1.14
 
 require (
 	github.com/go-sql-driver/mysql v1.6.0
