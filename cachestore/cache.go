@@ -10,7 +10,7 @@ type CacheStore[K comparable, V any] struct {
 	data     map[K]*cacheItem[K, V]
 	gcs      []*cacheItem[K, V]
 	cap      int
-	lifetime int
+	lifetime time.Duration
 	lock     sync.Mutex
 }
 
@@ -34,15 +34,17 @@ func (cs *CacheStore[K, V]) Cap() int {
 func (cs *CacheStore[K, V]) Save(key K, value V) bool {
 
 	cs.lock.Lock()
-	defer cs.lock.Unlock()
 	cs.toCheckOrGcFirstItem()
 	item := &cacheItem[K, V]{
-		key:    key,
-		value:  value,
-		gcTime: time.Now().Add(time.Second * time.Duration(cs.lifetime)),
+		key:   key,
+		value: value,
+	}
+	if cs.lifetime > 0 {
+		item.gcTime = time.Now().Add(cs.lifetime)
 	}
 	cs.data[key] = item
 	cs.gcs = append(cs.gcs, item)
+	cs.lock.Unlock()
 	return true
 }
 
@@ -52,7 +54,7 @@ func (cs *CacheStore[K, V]) Get(key K) V {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 	if v, ok := cs.data[key]; ok {
-		if time.Now().Before(v.gcTime) {
+		if cs.lifetime == 0 || time.Now().Before(v.gcTime) {
 			return v.value
 		}
 	}
@@ -82,7 +84,6 @@ func (cs *CacheStore[K, V]) gc() {
 func (cs *CacheStore[K, V]) doGC() {
 	grayKey := make(map[int]bool, 10)
 	for k, item := range cs.gcs {
-
 		if item != nil && time.Now().After(item.gcTime) {
 			cs.lock.Lock()
 			delete(cs.data, item.key)
@@ -102,13 +103,15 @@ func (cs *CacheStore[K, V]) doGC() {
 }
 
 //NewCacheStore 获取一个新的缓存仓
-func NewCacheStore[K comparable, V any](cap, lifetime int) *CacheStore[K, V] {
+func NewCacheStore[K comparable, V any](cap int, lifetime time.Duration) *CacheStore[K, V] {
 	cs := &CacheStore[K, V]{
 		data:     make(map[K]*cacheItem[K, V], cap),
 		gcs:      make([]*cacheItem[K, V], 0, cap),
 		cap:      cap,
 		lifetime: lifetime,
 	}
-	go cs.gc()
+	if lifetime > 0 {
+		go cs.gc()
+	}
 	return cs
 }
