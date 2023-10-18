@@ -5,66 +5,64 @@ import (
 	"time"
 )
 
-type cacheKey interface{}
-
 //CacheStore 缓存仓
-type CacheStore struct {
-	data     map[cacheKey]*cacheItem
-	gcs      []*cacheItem
+type CacheStore[K comparable, V any] struct {
+	data     map[K]*cacheItem[K, V]
+	gcs      []*cacheItem[K, V]
 	cap      int
-	lifetime int
+	lifetime time.Duration
 	lock     sync.Mutex
 }
 
-//cacheItem 缓存仓元素
-type cacheItem struct {
-	key    cacheKey
-	value  interface{}
+type cacheItem[K comparable, V any] struct {
+	key    K
+	value  V
 	gcTime time.Time
 }
 
 //Len 获取缓存仓当前存储量
-func (cs *CacheStore) Len() int {
+func (cs *CacheStore[K, V]) Len() int {
 	return len(cs.data)
 }
 
 //Cap 获取缓存仓容量
-func (cs *CacheStore) Cap() int {
+func (cs *CacheStore[K, V]) Cap() int {
 	return cs.cap
 }
 
 //Save 保存一个元素值
-func (cs *CacheStore) Save(key, value interface{}) bool {
+func (cs *CacheStore[K, V]) Save(key K, value V) bool {
 
-	k := cacheKey(key)
 	cs.lock.Lock()
-	defer cs.lock.Unlock()
 	cs.toCheckOrGcFirstItem()
-	item := &cacheItem{
-		key:    k,
-		value:  value,
-		gcTime: time.Now().Add(time.Second * time.Duration(cs.lifetime)),
+	item := &cacheItem[K, V]{
+		key:   key,
+		value: value,
 	}
-	cs.data[k] = item
+	if cs.lifetime > 0 {
+		item.gcTime = time.Now().Add(cs.lifetime)
+	}
+	cs.data[key] = item
 	cs.gcs = append(cs.gcs, item)
+	cs.lock.Unlock()
 	return true
 }
 
 //Get  获取一个元素值
-func (cs *CacheStore) Get(key interface{}) interface{} {
-	k := cacheKey(key)
+func (cs *CacheStore[K, V]) Get(key K) V {
+	var res V
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
-	if v, ok := cs.data[k]; ok {
-		if time.Now().Before(v.gcTime) {
+	if v, ok := cs.data[key]; ok {
+		if cs.lifetime == 0 || time.Now().Before(v.gcTime) {
 			return v.value
 		}
 	}
-	return ""
+	return res
 }
 
 //容量检测，去除最早的元素
-func (cs *CacheStore) toCheckOrGcFirstItem() {
+func (cs *CacheStore[K, V]) toCheckOrGcFirstItem() {
 	if len(cs.data) >= cs.cap {
 		item := cs.gcs[0]
 		if item != nil {
@@ -75,17 +73,17 @@ func (cs *CacheStore) toCheckOrGcFirstItem() {
 }
 
 //过期回收
-func (cs *CacheStore) gc() {
+func (cs *CacheStore[K, V]) gc() {
 	for {
 		<-time.Tick(1 * time.Second)
 		cs.doGC()
 	}
 }
+
 //单独进行一次回收处理
-func (cs *CacheStore) doGC() {
+func (cs *CacheStore[K, V]) doGC() {
 	grayKey := make(map[int]bool, 10)
 	for k, item := range cs.gcs {
-
 		if item != nil && time.Now().After(item.gcTime) {
 			cs.lock.Lock()
 			delete(cs.data, item.key)
@@ -94,7 +92,7 @@ func (cs *CacheStore) doGC() {
 		}
 	}
 	cs.lock.Lock()
-	newGcs := make([]*cacheItem,0,cap(cs.gcs))
+	newGcs := make([]*cacheItem[K, V], 0, cap(cs.gcs))
 	for k, item := range cs.gcs {
 		if _, ok := grayKey[k]; !ok {
 			newGcs = append(newGcs, item)
@@ -105,13 +103,15 @@ func (cs *CacheStore) doGC() {
 }
 
 //NewCacheStore 获取一个新的缓存仓
-func NewCacheStore(cap, lifetime int) *CacheStore {
-	cs := &CacheStore{
-		data:     make(map[cacheKey]*cacheItem, cap),
-		gcs:      make([]*cacheItem, 0, cap),
+func NewCacheStore[K comparable, V any](cap int, lifetime time.Duration) *CacheStore[K, V] {
+	cs := &CacheStore[K, V]{
+		data:     make(map[K]*cacheItem[K, V], cap),
+		gcs:      make([]*cacheItem[K, V], 0, cap),
 		cap:      cap,
 		lifetime: lifetime,
 	}
-	go cs.gc()
+	if lifetime > 0 {
+		go cs.gc()
+	}
 	return cs
 }
